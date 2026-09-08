@@ -1,0 +1,18 @@
+<Project>
+
+  <!--
+    Config compartida de todo lo bajo server/. Deliberadamente separado de src/Directory.Build.props
+    (que fija net48/net8.0-windows para el add-in de Revit): este árbol es el License API en su
+    propio ecosistema .NET, sin relación con la matriz de versiones de Revit.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <NeutralLanguage>es</NeutralLanguage>
+  </PropertyGroup>
+
+</Project>

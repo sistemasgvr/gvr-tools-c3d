@@ -1,0 +1,74 @@
+@page
+@model GvrLicense.Api.Pages.Admin.Licenses.CreateModel
+@{
+    ViewData["Title"] = "Nueva licencia";
+}
+
+@if (Model.CreatedKey != null)
+{
+    <div class="card card-success card-outline">
+        <div class="card-header">
+            <h3 class="card-title"><i class="bi bi-check-circle me-1"></i> Licencia creada</h3>
+        </div>
+        <div class="card-body">
+            <p class="mb-2">Copia esta clave y envíala al cliente (correo o WhatsApp). Solo se muestra ahora.</p>
+            <div class="input-group input-group-lg mb-3" style="max-width: 36rem">
+                <input type="text" class="form-control font-monospace" id="created-license-key" value="@Model.CreatedKey" readonly />
+                <button type="button" class="btn btn-outline-secondary" id="copy-license-key" title="Copiar">
+                    <i class="bi bi-clipboard" aria-hidden="true"></i> Copiar
+                </button>
+            </div>
+            <p class="text-body-secondary small mb-0">El cliente la pega en Revit al activar GVR Tools.</p>
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+            <a href="/Admin/Licenses/Index" class="btn btn-primary">Ver licencias</a>
+            <a href="/Admin/Index" class="btn btn-outline-secondary">Ir al inicio</a>
+        </div>
+    </div>
+    <script>
+      document.getElementById('copy-license-key')?.addEventListener('click', async () => {
+        const input = document.getElementById('created-license-key');
+        const btn = document.getElementById('copy-license-key');
+        try {
+          await navigator.clipboard.writeText(input.value);
+          btn.innerHTML = '<i class="bi bi-check2" aria-hidden="true"></i> Copiada';
+        } catch {
+          input.select();
+          document.execCommand('copy');
+          btn.innerHTML = '<i class="bi bi-check2" aria-hidden="true"></i> Copiada';
+        }
+      });
+    </script>
+}
+else
+{
+    <div class="card card-primary card-outline">
+        <div class="card-header"><h3 class="card-title">Nueva licencia</h3></div>
+        <form method="post">
+            <div class="card-body" style="max-width: 36rem">
+                <div class="mb-3">
+                    <label asp-for="Input.CustomerId" class="form-label">Cliente</label>
+                    <select asp-for="Input.CustomerId" asp-items="Model.CustomerOptions" class="form-select js-searchable" required></select>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.PlanId" class="form-label">Plan</label>
+                    <select asp-for="Input.PlanId" asp-items="Model.PlanOptions" class="form-select js-searchable" required></select>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.ValidUntil" class="form-label">Fecha de vencimiento</label>
+                    <input asp-for="Input.ValidUntil" type="date" class="form-control" required />
+                    <div class="form-text">Hasta cuándo podrá usarse si no renuevas.</div>
+                </div>
+                <div class="mb-3">
+                    <label asp-for="Input.MaxUsers" class="form-label">Máx. usuarios</label>
+                    <input asp-for="Input.MaxUsers" type="number" min="1" class="form-control" required />
+                </div>
+                <div asp-validation-summary="All" class="text-danger"></div>
+            </div>
+            <div class="card-footer d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary">Crear licencia</button>
+                <a href="/Admin/Licenses/Index" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div>
+}

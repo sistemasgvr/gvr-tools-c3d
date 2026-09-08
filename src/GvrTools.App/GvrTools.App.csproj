@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The deployable add-in: the assembly the .bundle/PackageContents.xml manifest points at. Its
+    only job is to build the ribbon out of whatever tools it finds, so it never needs editing when
+    a tool is added.
+
+    Everything the add-in needs lands in build/<C3DVersion>/, which is the folder the manifest and
+    scripts/install-plugin.ps1 refer to.
+  -->
+
+  <Import Project="..\GvrTools.Civil3D.props" />
+
+  <PropertyGroup>
+    <AssemblyName>GvrTools.App</AssemblyName>
+    <RootNamespace>GvrTools.App</RootNamespace>
+    <!-- The whole add-in lands in one flat folder per Civil 3D release. Only this project flattens
+         its output: the multi-targeted libraries must keep their per-framework subfolders, or a
+         net48 and a net8.0 build of the same library would overwrite each other in bin/. -->
+    <OutputPath>$(GvrBuildRoot)$(C3DVersion)\</OutputPath>
+    <OutDir>$(OutputPath)</OutDir>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Description>Complemento GVR Tools para AutoCAD Civil 3D: cinta de opciones y registro de herramientas.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GvrTools.Core\GvrTools.Core.csproj" />
+    <ProjectReference Include="..\GvrTools.Civil3D\GvrTools.Civil3D.csproj" />
+    <ProjectReference Include="..\GvrTools.UI\GvrTools.UI.csproj" />
+
+    <!-- Licenciamiento pausado para este MVP: el proyecto se mantiene y compila (ver
+         GvrTools.Licensing), pero GvrApplication ya no lo inicializa ni lo consulta. Se deja
+         referenciado para que quede listo para reactivarse sin volver a cablear proyectos. -->
+    <ProjectReference Include="..\GvrTools.Licensing\GvrTools.Licensing.csproj" />
+
+    <!-- Referenced so the tool is deployed next to the host; it is still *discovered* by scanning
+         the output folder for GvrTools.Tools.*.dll. Command registration happens in ToolCatalog via
+         DynamicLinker.LoadModule (see BatchExportCommands [assembly: CommandClass]). -->
+    <ProjectReference Include="..\GvrTools.Tools.BatchExport\GvrTools.Tools.BatchExport.csproj" />
+  </ItemGroup>
+
+</Project>

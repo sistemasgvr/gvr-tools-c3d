@@ -1,0 +1,32 @@
+@page
+@model GvrLicense.Api.Pages.Admin.Customers.CreateModel
+@{
+    ViewData["Title"] = "Nuevo cliente";
+}
+<div class="card card-primary" style="max-width: 40rem">
+    <div class="card-header"><h3 class="card-title">Nuevo cliente</h3></div>
+    <form method="post">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Empresa</label>
+                <input asp-for="Input.CompanyName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Contacto</label>
+                <input asp-for="Input.ContactName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Correo</label>
+                <input asp-for="Input.ContactEmail" type="email" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Notas de pago</label>
+                <textarea asp-for="Input.PaymentNotes" class="form-control"></textarea>
+            </div>
+            <div asp-validation-summary="All" class="text-danger"></div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary">Crear</button>
+        </div>
+    </form>
+</div>

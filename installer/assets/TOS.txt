@@ -1,0 +1,47 @@
+TÉRMINOS Y CONDICIONES DE LICENCIA — GVR TOOLS
+Última actualización: 25 de agosto de 2026
+
+IMPORTANTE: Lee estos términos antes de instalar GVR Tools. Al instalar, activar o utilizar el software, la persona usuaria y, cuando corresponda, la empresa que adquirió la licencia aceptan estos términos.
+
+1. Producto y relación con Autodesk
+GVR Tools es un complemento de software para Autodesk Revit. GVR es un proveedor independiente. Autodesk y Revit son marcas de sus respectivos titulares; GVR Tools no está patrocinado, certificado ni garantizado por Autodesk salvo indicación expresa.
+
+2. Licencia
+Sujeto al pago y al plan contratado, GVR concede una licencia limitada, revocable, no exclusiva, no transferible y sin derecho de sublicencia para instalar y usar GVR Tools con fines profesionales internos. La propiedad del software, su código, documentación, marcas y demás derechos permanece en GVR y sus licenciantes.
+
+Las licencias por puesto están vinculadas a un dispositivo o instalación ("node-locked"), salvo que el pedido o contrato indique otra modalidad. Cada puesto requiere una licencia válida. Los cambios legítimos de equipo podrán solicitar una reactivación a soporte y estarán sujetos a verificación razonable.
+
+3. Compra, facturación y vigencia
+Los precios, impuestos, duración, número de puestos, mantenimiento y renovaciones son los indicados en la cotización, factura, orden o contrato aplicable. Cuando la facturación o renovación se gestione manualmente, no habrá renovación automática salvo acuerdo expreso. La falta de pago o el vencimiento podrá suspender las funciones sujetas a licencia, sin afectar las obligaciones ya devengadas.
+
+4. Restricciones
+No se permite: (a) compartir claves fuera de los puestos autorizados; (b) vender, alquilar, sublicenciar o redistribuir el software; (c) eludir la activación o los límites técnicos; (d) descompilar, modificar o realizar ingeniería inversa, excepto cuando la ley aplicable lo permita de forma irrenunciable; ni (e) utilizar GVR Tools para infringir derechos o normas.
+
+5. Activación, privacidad y comunicaciones
+Para emitir, activar, proteger y dar soporte a la licencia, GVR puede tratar datos como nombre, empresa, correo, clave o identificador de licencia, versión de Revit y del producto, estado de activación y una huella técnica del dispositivo. Estos datos se usan para gestionar licencias, prevenir fraude, resolver incidencias y cumplir obligaciones comerciales y legales. No se pretende recopilar el contenido de los modelos de Revit, salvo que la persona usuaria lo entregue voluntariamente para soporte.
+
+La información se conservará durante el tiempo necesario para esas finalidades y obligaciones legales. Para consultas, acceso, corrección o eliminación cuando proceda, escribe a soporte@gvr.tools. No envíes modelos ni información confidencial a soporte sin autorización de su titular.
+
+6. Actualizaciones, compatibilidad y terceros
+GVR puede publicar correcciones o nuevas versiones, pero no garantiza compatibilidad perpetua con todas las versiones, actualizaciones, idiomas, complementos o configuraciones de Revit y Windows. Algunas funciones pueden requerir componentes de terceros, como PDF24 Creator. Dichos componentes se rigen por sus propias licencias y condiciones.
+
+7. Soporte
+El soporte se presta según el plan contratado y dentro de un esfuerzo comercial razonable. Salvo compromiso escrito, no se garantizan tiempos específicos de respuesta o resolución. Contacto: soporte@gvr.tools.
+
+8. Garantías y responsabilidad
+En la máxima medida permitida por la ley, GVR Tools se proporciona "tal cual" y según disponibilidad. GVR no garantiza que el software esté libre de errores, que opere sin interrupciones ni que produzca resultados adecuados para un proyecto concreto. La persona usuaria es responsable de validar resultados, mantener copias de seguridad y aplicar sus controles profesionales antes de modificar, emitir o entregar un modelo.
+
+En la máxima medida permitida por la ley, GVR no será responsable por daños indirectos, pérdida de beneficios, contratos, datos, modelos, productividad o reputación. La responsabilidad total de GVR relacionada con el software no excederá el importe efectivamente pagado por la licencia afectada durante los doce meses anteriores al hecho que originó la reclamación. Nada de lo anterior limita responsabilidades que legalmente no puedan excluirse.
+
+9. Terminación
+La licencia termina si se incumplen materialmente estos términos y el incumplimiento no se corrige cuando sea subsanable. Al terminar, debe cesar el uso y desinstalarse el software. Las cláusulas de propiedad, privacidad, restricciones y responsabilidad sobreviven cuando corresponda.
+
+10. Ley aplicable y términos completos
+Se aplicará la ley del domicilio legal de GVR, sin perjuicio de las normas imperativas de protección que correspondan. La cotización, factura, orden o contrato aplicable y estos términos constituyen el acuerdo de licencia; si existe conflicto, prevalece el contrato firmado o la orden aceptada.
+
+Al pulsar "Acepto", confirmas que tienes capacidad para aceptar estos términos personalmente o en nombre de la organización licenciada.
+
+---
+
+ENGLISH SUMMARY
+GVR Tools is independently developed commercial add-in software for Autodesk Revit. Use requires a valid, paid license for the authorized node-locked seats. License sharing, redistribution, resale, circumvention and unauthorized reverse engineering are prohibited. Activation may process contact, license, product-version and device-fingerprint data; Revit model content is not intentionally collected unless supplied for support. The software is provided "as is", results must be professionally verified, and liability is limited to fees paid for the affected license in the prior twelve months where permitted by law. Third-party prerequisites are governed by their own terms. For licensing, privacy or support: soporte@gvr.tools. The Spanish terms above are the governing text unless a signed agreement states otherwise.

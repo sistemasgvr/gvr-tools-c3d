@@ -1,0 +1,204 @@
+@page
+@using GvrLicense.Domain.Entities
+@model GvrLicense.Api.Pages.Admin.Releases.EditModel
+@{
+    ViewData["Title"] = "Editar release";
+}
+
+@if (TempData["Saved"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Release actualizado correctamente.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<div class="card card-primary card-outline">
+    <div class="card-header">
+        <h3 class="card-title">Editar release</h3>
+    </div>
+    <form id="edit-release-form" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <input asp-for="Id" type="hidden" />
+        <div class="card-body">
+            <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+            <div class="mb-3" style="max-width: 28rem">
+                <label asp-for="Input.Version" class="form-label">Versión</label>
+                <input asp-for="Input.Version" type="text" class="form-control"
+                       pattern="^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$"
+                       placeholder="1.0.0" maxlength="64" required />
+                <div class="form-text">Debe ser mayor que la última del mismo tipo (o dejar la versión actual). Formato MAJOR.MINOR.PATCH.</div>
+            </div>
+
+            <div class="mb-3" style="max-width: 36rem">
+                <label asp-for="Input.Kind" class="form-label">Tipo</label>
+                <select asp-for="Input.Kind" class="form-select">
+                    <option value="@ReleaseKinds.Installer">Instalador — web /download (clientes nuevos)</option>
+                    <option value="@ReleaseKinds.Update">Update — solo aviso dentro de Revit</option>
+                </select>
+                <div class="form-text">
+                    <strong>Recomendado:</strong> usa siempre <em>Instalador</em> cuando subas un Setup nuevo
+                    (<code>GvrTools-Setup-X.Y.Z.exe</code>. Así aparece en la landing y el add-in también puede detectarlo.
+                    <em>Update</em> es opcional (no sale en la web; solo popup en Revit).
+                    No es un release por año de Revit: un solo Setup cubre 2021–2027.
+                </div>
+            </div>
+
+            <div class="mb-3" style="max-width: 36rem">
+                <label asp-for="ArtifactFile" class="form-label">Reemplazar archivo (opcional)</label>
+                <input asp-for="ArtifactFile" type="file" class="form-control" accept=".exe,.zip,.7z"
+                       disabled="@(!Model.MinioConfigured)" />
+                <div class="form-text">
+                    Archivo actual: <strong>@(Model.ExistingFileName ?? "Sin nombre")</strong>.
+                    Si no seleccionas otro, se conservará el artefacto existente.
+                </div>
+                <div id="edit-upload-progress-container" class="progress mt-2 d-none" role="progressbar"
+                     aria-label="Progreso de subida" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div id="edit-upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+                </div>
+                <div id="edit-upload-status" class="form-text mt-1"></div>
+                <div id="edit-upload-error" class="text-danger small mt-2 d-none" role="alert"></div>
+                @if (!Model.MinioConfigured)
+                {
+                    <div class="text-warning small mt-1">MinIO no está configurado; puedes editar los demás campos.</div>
+                }
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Input.Notes" class="form-label">Notas de la versión</label>
+                <textarea asp-for="Input.Notes" class="form-control" rows="5" placeholder="Qué hay de nuevo…"></textarea>
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary" id="edit-release-submit">
+                <i class="bi bi-check-lg me-1" aria-hidden="true"></i> Guardar cambios
+            </button>
+            <a href="/Admin/Releases" class="btn btn-outline-secondary">Volver a releases</a>
+        </div>
+    </form>
+</div>
+
+<script>
+  document.getElementById('edit-release-form')?.addEventListener('submit', (event) => {
+    if (!window.XMLHttpRequest || !window.FormData) return;
+
+    const form = event.currentTarget;
+    const fileInput = form.querySelector('input[type="file"]');
+    const hasFile = fileInput?.files?.length > 0;
+    if (!hasFile) return;
+
+    event.preventDefault();
+    const submit = document.getElementById('edit-release-submit');
+    const container = document.getElementById('edit-upload-progress-container');
+    const bar = document.getElementById('edit-upload-progress-bar');
+    const error = document.getElementById('edit-upload-error');
+    const status = document.getElementById('edit-upload-status');
+    const xhr = new XMLHttpRequest();
+    const progressId = (crypto.randomUUID && crypto.randomUUID()) ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    let pollTimer = null;
+    const releaseId = new URLSearchParams(window.location.search).get('id') || '';
+
+    const setProgress = (percent, label) => {
+      const pct = Math.max(0, Math.min(100, percent));
+      bar.style.width = `${pct}%`;
+      bar.textContent = `${pct}%`;
+      container.setAttribute('aria-valuenow', pct.toString());
+      if (status) status.textContent = label || '';
+    };
+
+    const stopPoll = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    const startMinioPoll = () => {
+      stopPoll();
+      pollTimer = setInterval(async () => {
+        try {
+          const url = `/Admin/Releases/Edit?id=${encodeURIComponent(releaseId)}&handler=UploadProgress&progressId=${encodeURIComponent(progressId)}`;
+          const res = await fetch(url, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (typeof data.percent === 'number') {
+            setProgress(data.percent, data.phase || '');
+          }
+          if (data.error) {
+            error.textContent = data.error;
+            error.classList.remove('d-none');
+          }
+          if (data.done) stopPoll();
+        } catch { }
+      }, 400);
+    };
+
+    submit.disabled = true;
+    error.classList.add('d-none');
+    error.textContent = '';
+    container.classList.remove('d-none');
+    bar.classList.add('progress-bar-animated', 'progress-bar-striped');
+    setProgress(0, 'Preparando…');
+
+    xhr.upload.addEventListener('progress', (progressEvent) => {
+      if (!progressEvent.lengthComputable || progressEvent.total <= 0) {
+        setProgress(15, 'Enviando al servidor…');
+        return;
+      }
+      const uploaded = progressEvent.loaded / progressEvent.total;
+      const percent = Math.max(1, Math.min(65, Math.round(uploaded * 65)));
+      const mb = (progressEvent.loaded / (1024 * 1024)).toFixed(1);
+      const totalMb = (progressEvent.total / (1024 * 1024)).toFixed(1);
+      setProgress(percent, `Enviando al servidor… ${mb}/${totalMb} MB`);
+    });
+
+    xhr.upload.addEventListener('load', () => {
+      setProgress(68, 'Recibido. Calculando / subiendo a MinIO…');
+      startMinioPoll();
+    });
+
+    xhr.addEventListener('load', () => {
+      stopPoll();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        setProgress(100, 'Listo');
+        let redirect = window.location.href;
+        try {
+          redirect = JSON.parse(xhr.responseText).redirect || redirect;
+        } catch {
+          redirect = xhr.responseURL || redirect;
+        }
+        window.location.assign(redirect);
+        return;
+      }
+
+      let message = 'No se pudo actualizar el release.';
+      try {
+        message = JSON.parse(xhr.responseText).message || message;
+      } catch { }
+      error.textContent = message;
+      error.classList.remove('d-none');
+      submit.disabled = false;
+      bar.classList.remove('progress-bar-animated');
+      if (status) status.textContent = '';
+    });
+
+    xhr.addEventListener('error', () => {
+      stopPoll();
+      error.textContent = 'La subida falló por un problema de red. Inténtalo de nuevo.';
+      error.classList.remove('d-none');
+      submit.disabled = false;
+      bar.classList.remove('progress-bar-animated');
+      if (status) status.textContent = '';
+    });
+
+    xhr.open('POST', form.action || window.location.href);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.setRequestHeader('X-Upload-Progress-Id', progressId);
+    xhr.send(new FormData(form));
+  });
+</script>

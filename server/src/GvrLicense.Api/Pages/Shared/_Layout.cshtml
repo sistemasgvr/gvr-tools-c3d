@@ -1,0 +1,311 @@
+@* Estructura clonada de AdminLTE 4 (dist/starter.html oficial, ColorlibHQ/AdminLTE v4.8.5) --
+   navbar/sidebar/app-content/footer reales de la plantilla, recortado a nuestros items de menú
+   reales. Piezas de la demo con datos falsos (mensajes, notificaciones, selector de idioma) se
+   quitaron a propósito: no tienen backend detrás y confundirían en un panel real. *@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] -- GVR TOOLS-RVT Admin</title>
+
+    <script>
+      (() => {
+        'use strict';
+        const root = document.documentElement;
+        const STORAGE_KEY = 'lte-theme';
+        let stored = null;
+        try { stored = localStorage.getItem(STORAGE_KEY); } catch { }
+        const authored = root.getAttribute('data-bs-theme');
+        let resolved = 'light';
+        if (stored === 'dark' || stored === 'light') resolved = stored;
+        else if (authored === 'dark' || authored === 'light') resolved = authored;
+        else if (globalThis.matchMedia('(prefers-color-scheme: dark)').matches) resolved = 'dark';
+        root.setAttribute('data-bs-theme', resolved);
+        root.style.colorScheme = resolved;
+      })();
+    </script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/png" href="~/img/escudo-gvr.png" />
+    <link rel="stylesheet" href="~/lib/fonts/source-sans-3/index.css" />
+    <link rel="stylesheet" href="~/lib/tabulator/css/tabulator_bootstrap5.min.css" />
+    <link rel="stylesheet" href="~/lib/overlayscrollbars/styles/overlayscrollbars.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/lib/adminlte/css/adminlte.min.css" />
+    <link rel="stylesheet" href="~/lib/tom-select/css/tom-select.bootstrap5.min.css" />
+    <link rel="stylesheet" href="~/css/admin-site.css" />
+</head>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<div class="app-wrapper">
+    <nav class="app-header navbar navbar-expand bg-body">
+        <div class="container-fluid">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="Alternar sidebar">
+                        <i class="bi bi-list"></i>
+                    </a>
+                </li>
+                <li class="nav-item d-none d-md-block">
+                    <a href="/Admin/Index" class="nav-link">
+                        <i class="bi bi-grid-1x2 me-1" aria-hidden="true"></i> Inicio
+                    </a>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#" data-lte-toggle="fullscreen" aria-label="Pantalla completa">
+                        <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
+                        <i data-lte-icon="minimize" class="bi bi-fullscreen-exit d-none"></i>
+                    </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link" href="#" id="bd-theme" aria-label="Cambiar tema" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-sun-fill" data-lte-theme-icon="light"></i>
+                        <i class="bi bi-moon-fill d-none" data-lte-theme-icon="dark"></i>
+                        <i class="bi bi-circle-half d-none" data-lte-theme-icon="auto"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="bd-theme" style="--bs-dropdown-min-width: 8rem">
+                        <li><button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="light"><i class="bi bi-sun-fill me-2"></i> Claro</button></li>
+                        <li><button type="button" class="dropdown-item d-flex align-items-center" data-bs-theme-value="dark"><i class="bi bi-moon-fill me-2"></i> Oscuro</button></li>
+                        <li><button type="button" class="dropdown-item d-flex align-items-center active" data-bs-theme-value="auto"><i class="bi bi-circle-half me-2"></i> Automático</button></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown user-menu">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle fs-4"></i>
+                        <span class="d-none d-md-inline">@User.Identity?.Name</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-lg dropdown-menu-end">
+                        <li class="user-header text-bg-primary">
+                            <i class="bi bi-person-circle" style="font-size: 4rem"></i>
+                            <p>@User.Identity?.Name</p>
+                        </li>
+                        <li class="user-footer">
+                            <form method="post" asp-page="/Admin/Logout" class="w-100">
+                                <button type="submit" class="btn btn-outline-danger w-100">
+                                    <i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+        <div class="sidebar-brand">
+            <a href="/Admin/Index" class="brand-link">
+                <img src="~/img/escudo-gvr.png" alt="" class="brand-image gvr-brand-logo shadow" />
+                <span class="brand-text fw-light">GVR TOOLS-RVT</span>
+            </a>
+        </div>
+        <div class="sidebar-search" role="search">
+            <label for="sidebar-search-input" class="visually-hidden">Filtrar menú</label>
+            <input type="search" id="sidebar-search-input" class="form-control form-control-sm"
+                   placeholder="Filtrar menú…" autocomplete="off"
+                   data-lte-toggle="sidebar-search" data-lte-target="#navigation" />
+            <p class="fs-7 text-secondary mt-2 mb-0" data-lte-search-empty role="status" hidden>Sin resultados.</p>
+        </div>
+        <div class="sidebar-wrapper">
+            <nav class="mt-2" aria-label="Navegación principal">
+                <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" data-accordion="false" id="navigation">
+                    <li class="nav-item">
+                        <a href="/Admin/Index" class="nav-link">
+                            <i class="nav-icon bi bi-speedometer"></i>
+                            <p>Inicio</p>
+                        </a>
+                    </li>
+                    <li class="nav-header">LICENCIAS</li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="nav-icon bi bi-people"></i>
+                            <p>Clientes <i class="nav-arrow bi bi-chevron-right"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="/Admin/Customers/Index" class="nav-link">
+                                    <i class="nav-icon bi bi-circle"></i>
+                                    <p>Ver todos</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="/Admin/Customers/Create" class="nav-link">
+                                    <i class="nav-icon bi bi-circle"></i>
+                                    <p>Nuevo cliente</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#" class="nav-link">
+                            <i class="nav-icon bi bi-key"></i>
+                            <p>Licencias <i class="nav-arrow bi bi-chevron-right"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
+                            <li class="nav-item">
+                                <a href="/Admin/Licenses/Index" class="nav-link">
+                                    <i class="nav-icon bi bi-circle"></i>
+                                    <p>Ver todas</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="/Admin/Licenses/Create" class="nav-link">
+                                    <i class="nav-icon bi bi-circle"></i>
+                                    <p>Nueva licencia</p>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/Admin/Plans/Index" class="nav-link">
+                            <i class="nav-icon bi bi-clipboard-check"></i>
+                            <p>Planes</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/Admin/Quotes/Index" class="nav-link">
+                            <i class="nav-icon bi bi-chat-square-text"></i>
+                            <p>Cotizaciones</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/Admin/Releases/Index" class="nav-link">
+                            <i class="nav-icon bi bi-cloud-arrow-up"></i>
+                            <p>Actualizaciones</p>
+                        </a>
+                    </li>
+                    <li class="nav-header">ADMINISTRACIÓN</li>
+                    <li class="nav-item">
+                        <a href="/Admin/Users/Index" class="nav-link">
+                            <i class="nav-icon bi bi-shield-lock"></i>
+                            <p>Administradores</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/Admin/Settings/Index" class="nav-link">
+                            <i class="nav-icon bi bi-gear"></i>
+                            <p>Configuración</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/Admin/Audit/Index" class="nav-link">
+                            <i class="nav-icon bi bi-journal-text"></i>
+                            <p>Auditoría</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/swagger" class="nav-link" target="_blank" rel="noopener">
+                            <i class="nav-icon bi bi-code-slash"></i>
+                            <p>Avanzado · API</p>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </aside>
+
+    <main class="app-main">
+        <div class="app-content-header">
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <h1 class="mb-0 fs-3">@ViewData["Title"]</h1>
+                    </div>
+                    <div class="col-sm-6">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb float-sm-end">
+                                <li class="breadcrumb-item"><a href="/Admin/Index">Inicio</a></li>
+                                <li class="breadcrumb-item active" aria-current="page">@ViewData["Title"]</li>
+                            </ol>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="app-content">
+            <div class="container-fluid">
+                @RenderBody()
+            </div>
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <div class="float-end d-none d-sm-inline">GVR TOOLS-RVT</div>
+        <strong>Copyright &copy; @DateTime.UtcNow.Year <a href="#" class="text-decoration-none">GVR</a>.</strong> Todos los derechos reservados.
+    </footer>
+</div>
+
+<script src="~/lib/overlayscrollbars/browser/overlayscrollbars.browser.es6.min.js"></script>
+<script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="~/lib/adminlte/js/adminlte.min.js"></script>
+<script src="~/lib/tabulator/js/tabulator.min.js"></script>
+<script src="~/lib/tom-select/js/tom-select.complete.min.js"></script>
+<script src="~/js/admin-selects.js"></script>
+<script>
+  // Tabulator no trae español de fábrica (ver src/js/modules/Localize/defaults/langs.js en
+  // server/vendor/adminlte -- solo define "default" en inglés). Cada página con una tabla usa
+  // esto como `langs: window.gvrTabulatorLocale, locale: 'es'`.
+  window.gvrTabulatorLocale = {
+    es: {
+      groups: { item: 'elemento', items: 'elementos' },
+      data: { loading: 'Cargando', error: 'Error' },
+      // Labels cortos « ‹ › » como AdminLTE (dist/users.html / tables/simple);
+      // los *_title siguen en español para tooltip / accesibilidad.
+      pagination: {
+        page_size: 'Filas',
+        page_title: 'Mostrar página',
+        first: '«',
+        first_title: 'Primera página',
+        last: '»',
+        last_title: 'Última página',
+        prev: '‹',
+        prev_title: 'Página anterior',
+        next: '›',
+        next_title: 'Página siguiente',
+        all: 'Todos',
+        counter: { showing: 'Mostrando', of: 'de', rows: 'filas', pages: 'páginas' },
+      },
+      headerFilters: { default: 'filtrar columna...' },
+    },
+  };
+
+  // Helpers compartidos (auditoría UX: badges en español, fechas legibles).
+  window.gvrAdmin = {
+    licenseStatusBadge(value) {
+      const colors = { Active: 'success', Suspended: 'warning', Expired: 'danger' };
+      const labels = { Active: 'Activa', Suspended: 'Suspendida', Expired: 'Vencida' };
+      return `<span class="badge text-bg-${colors[value] || 'secondary'}">${labels[value] || value}</span>`;
+    },
+    formatDate(iso) {
+      // Auditoría del sistema: esto solo recortaba los primeros 10 caracteres del ISO en UTC, sin
+      // convertir zona horaria -- para algo que pasó de noche en Lima (madrugada en UTC), mostraba
+      // el día siguiente al real. GVR y su clientela son de Lima (UTC-5, sin horario de verano);
+      // Intl.DateTimeFormat con timeZone convierte de verdad, no solo recorta el string.
+      if (!iso) return '';
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return String(iso).slice(0, 10);
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Lima', day: '2-digit', month: '2-digit', year: 'numeric',
+      }).formatToParts(date);
+      const get = (type) => parts.find((p) => p.type === type)?.value ?? '';
+      return `${get('day')}/${get('month')}/${get('year')}`;
+    },
+  };
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const sidebarWrapper = document.querySelector('.sidebar-wrapper');
+    const isMobile = window.innerWidth <= 992;
+    if (sidebarWrapper && OverlayScrollbarsGlobal?.OverlayScrollbars !== undefined && !isMobile) {
+      OverlayScrollbarsGlobal.OverlayScrollbars(sidebarWrapper, {
+        scrollbars: { theme: 'os-theme-light', autoHide: 'leave', clickScroll: true }
+      });
+    }
+  });
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

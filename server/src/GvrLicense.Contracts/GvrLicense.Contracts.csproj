@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Contratos de /v1/* (docs/LICENSING_PLAN.md, "API mínima v1"). El cliente (GvrTools.Licensing,
+       en src/) NO referencia este proyecto: no puede, corre en net48; así que sus DTOs bajo
+       Http/Dto son un espejo mantenido a mano. Este proyecto es la fuente de verdad del lado server. -->
+
+  <PropertyGroup>
+    <RootNamespace>GvrLicense.Contracts</RootNamespace>
+  </PropertyGroup>
+
+</Project>

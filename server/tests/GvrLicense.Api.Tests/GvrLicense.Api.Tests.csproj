@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Mismo patrón que tests/GvrTools.Core.Tests: xUnit corriendo con dotnet test sin nada externo
+       levantado (las funciones SQL de GvrLicense.Infrastructure/Sql se prueban contra un Postgres
+       real en Fase 0, no aquí). -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GvrLicense.Api\GvrLicense.Api.csproj" />
+    <ProjectReference Include="..\..\src\GvrLicense.Domain\GvrLicense.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

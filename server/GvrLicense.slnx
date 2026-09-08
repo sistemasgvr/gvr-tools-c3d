@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GvrLicense.Domain/GvrLicense.Domain.csproj" />
+    <Project Path="src/GvrLicense.Contracts/GvrLicense.Contracts.csproj" />
+    <Project Path="src/GvrLicense.Infrastructure/GvrLicense.Infrastructure.csproj" />
+    <Project Path="src/GvrLicense.Api/GvrLicense.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GvrLicense.Api.Tests/GvrLicense.Api.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- EF Core + Npgsql (docs/LICENSING_PLAN.md, Pieza 1 "Stack recomendado"). A diferencia de
+       src/ (el add-in, que evita NuGet de runtime por compartir proceso con Revit), aquí no aplica
+       esa restricción: este código corre solo, en un contenedor propio. -->
+
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="3.7.400.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.1" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Sql\*.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GvrLicense.Domain\GvrLicense.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

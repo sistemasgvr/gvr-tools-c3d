@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Entidades puras (docs/LICENSING_PLAN.md, Pieza 1 "Modelo de datos"). Sin EF Core aquí a
+       propósito: el mapeo (Fluent API, índices, la función consume_quota) vive en
+       GvrLicense.Infrastructure, para que el dominio no dependa del ORM. -->
+
+  <PropertyGroup>
+    <RootNamespace>GvrLicense.Domain</RootNamespace>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,157 @@
+@page
+@using System.Text.Json
+@model GvrLicense.Api.Pages.Admin.Audit.IndexModel
+@{
+    ViewData["Title"] = "Auditoría";
+}
+
+@if (Model.RiskyIps.Count > 0 || Model.SharedFingerprints.Count > 0)
+{
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Señales de riesgo</h3>
+        </div>
+        <div class="card-body">
+            <p class="text-body-secondary small mb-3">
+                Umbrales simples, no es un veredicto de abuso -- revisa el contexto antes de actuar (UI_FREEMIUM_PLAN.md §4.2).
+            </p>
+
+            @if (Model.RiskyIps.Count > 0)
+            {
+                <h6>IPs con varios intentos de alta free</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr><th>IP</th><th>Intentos</th><th>Rechazados</th><th>Último</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.RiskyIps)
+                            {
+                                <tr>
+                                    <td><code>@row.Ip</code></td>
+                                    <td>@row.AttemptCount</td>
+                                    <td>
+                                        @if (row.DeniedCount > 0)
+                                        {
+                                            <span class="badge bg-danger">@row.DeniedCount</span>
+                                        }
+                                        else
+                                        {
+                                            @:0
+                                        }
+                                    </td>
+                                    <td>@row.LastSeenUtc.ToLima().ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (Model.SharedFingerprints.Count > 0)
+            {
+                <h6>El mismo dispositivo aparece en varias licencias</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr><th>Fingerprint</th><th>Licencias</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.SharedFingerprints)
+                            {
+                                <tr>
+                                    <td>
+                                        <a href="/Admin/Audit?q=@Uri.EscapeDataString(row.Fingerprint)">
+                                            <code>@row.Fingerprint[..Math.Min(20, row.Fingerprint.Length)]…</code>
+                                        </a>
+                                    </td>
+                                    <td>@string.Join(", ", row.LicenseKeys)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Historial de cambios</h3>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            <div class="col-md-8">
+                <label class="form-label" for="audit-q">Buscar (IP, fingerprint, actor, acción)</label>
+                <input id="audit-q" name="q" value="@Model.Q" class="form-control" placeholder="ej. 190.12… o hash del PC" />
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                @if (!string.IsNullOrWhiteSpace(Model.Q))
+                {
+                    <a href="/Admin/Audit" class="btn btn-outline-secondary">Limpiar</a>
+                }
+            </div>
+        </form>
+        <p class="text-body-secondary small">
+            Quién suspendió/reactivó licencias, altas free/pago y liberaciones de PC.
+            Los heartbeats no aparecen aquí (van a <em>Contactos</em> del dispositivo).
+        </p>
+        @if (Model.Rows.Count == 0)
+        {
+            <p class="text-secondary mb-0">
+                @(string.IsNullOrWhiteSpace(Model.Q)
+                    ? "Todavía no hay eventos de auditoría."
+                    : "Ningún evento coincide con el filtro.")
+            </p>
+        }
+        else
+        {
+            <div id="audit-table"></div>
+        }
+    </div>
+</div>
+
+@if (Model.Rows.Count > 0)
+{
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+    new Tabulator('#audit-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 25,
+      paginationCounter: 'rows',
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false },
+        { title: 'Cuándo', field: 'occurredAtUtc', width: 150, formatter: (c) => window.gvrAdmin.formatDate(c.getValue()), responsive: 0 },
+        { title: 'Acción', field: 'actionLabel', minWidth: 160, responsive: 0 },
+        { title: 'Quién', field: 'actor', minWidth: 100, responsive: 1 },
+        // IMPORTANTE: "ip" viene de X-Forwarded-For, un header que el cliente controla por completo
+        // (ver ClientIp() en V1Endpoints.cs) -- puede contener cualquier string, no necesariamente una
+        // IP. Nunca usar allowHTML/innerHTML con este campo: se construye un nodo <code> real y se le
+        // asigna textContent (nunca se interpreta como HTML), a diferencia de la versión anterior que
+        // interpolaba el valor crudo en un template literal con allowHTML: true -- eso permitía XSS
+        // almacenado ejecutable en la sesión de cualquier admin con solo mandar una activación/heartbeat
+        // anónimo con ese header spoofeado.
+        {
+          title: 'IP', field: 'ip', width: 130, responsive: 2,
+          formatter: (c) => {
+            const value = c.getValue();
+            if (!value) return '—';
+            const code = document.createElement('code');
+            code.textContent = value;
+            return code;
+          },
+        },
+        { title: 'Detalle', field: 'detailSummary', minWidth: 200, responsive: 0 },
+      ],
+    });
+  });
+</script>
+}

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Un solo proyecto sirve /v1/* (add-in: JWT Bearer firmado ES256) y /admin/* (panel Razor
+       Pages: cookie, sin 2FA): ver docs/LICENSING_PLAN.md, Pieza 1 "Stack recomendado" y Pieza 5.
+       Un DbContext, un release, menos piezas que mantener en EasyPanel que dos servicios separados. -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GvrLicense.Domain\GvrLicense.Domain.csproj" />
+    <ProjectReference Include="..\GvrLicense.Contracts\GvrLicense.Contracts.csproj" />
+    <ProjectReference Include="..\GvrLicense.Infrastructure\GvrLicense.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

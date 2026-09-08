@@ -1,0 +1,91 @@
+<Project>
+
+  <!--
+    Imported by every project that talks to the AutoCAD / Civil 3D managed API. Keeps the reference-
+    assembly packages and the per-release target framework in exactly one place.
+
+    AutoCAD.NET / Civil3D.NET are compile-time contracts only: AutoCAD/Civil 3D supplies the real
+    acmgd.dll / accoremgd.dll / AeccDbMgd.dll etc. at runtime, so referencing the NuGet packages
+    with ExcludeAssets="runtime" avoids shipping (and clashing with) a copy of the host's own
+    assemblies next to the add-in.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>$(C3DTargetFramework)</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <!--
+    .NET-hosted releases only (2025+): AutoCAD/Civil 3D load the plugin DLL directly into its own
+    already-running .NET 8 host process rather than launching it with `dotnet exec`, so the SDK's
+    default "class library, no runtimeconfig.json needed" assumption does not hold here. Without a
+    <AssemblyName>.runtimeconfig.json next to the DLL the CLR has nothing telling it which runtime
+    version/rollForward policy to bind to, and the bundle fails to load with no visible error at
+    all (confirmed pattern reported on Autodesk's own .NET forum for 2025 bundles). Forcing both
+    properties below is what Autodesk's own multi-targeting sample project does for exactly this
+    reason. CopyLocalLockFileAssemblies additionally makes sure this project's own NuGet
+    dependencies (if it ever gets one) land in the bundle instead of being assumed to already be on
+    the host, unlike acmgd/accoremgd/acdbmgd which must NOT be copied (see ExcludeAssets="runtime"
+    below).
+  -->
+  <PropertyGroup Condition="'$(C3DTargetFramework)' != 'net48'">
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!-- Cumulative version symbols: a 2024 build defines C3D2024 plus C3D2021_OR_GREATER through
+       C3D2024_OR_GREATER. Code guards features with the *_OR_GREATER form, so supporting a new
+       Civil 3D release is a one-line change here and no source edits at all. -->
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);C3D$(C3DVersion)</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2021'">$(DefineConstants);C3D2021_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2022'">$(DefineConstants);C3D2022_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2023'">$(DefineConstants);C3D2023_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2024'">$(DefineConstants);C3D2024_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2025'">$(DefineConstants);C3D2025_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2026'">$(DefineConstants);C3D2026_OR_GREATER</DefineConstants>
+    <DefineConstants Condition="'$(C3DVersion)' &gt;= '2027'">$(DefineConstants);C3D2027_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+    AutoCAD.NET (acmgd/accoremgd/acdbmgd reference assemblies) is published on NuGet.org by
+    Autodesk, but — unlike Nice3point.Revit.Api, which mirrors the host's own release year —
+    AutoCAD.NET is versioned by AutoCAD's internal product version, not the marketing year (e.g.
+    "24.3.0" is the package for AutoCAD/Civil 3D 2024). The map below translates C3DVersion into
+    that package version so the rest of the build still only ever sets one knob.
+
+    There is currently no equivalent official reference package for the Civil 3D-specific managed
+    API (AeccDbMgd/AeccPressMgd); until Autodesk publishes one (or an internal feed does), local
+    development points GvrC3DReferencePath at a real Civil 3D install and this file falls back to
+    <Reference> entries with HintPath. Set GvrC3DReferencePath via
+      dotnet build -p:GvrC3DReferencePath="C:\Program Files\Autodesk\AutoCAD 2024\"
+    or an environment variable of the same name; scripts/install-plugin.ps1 detects installs
+    automatically the same way scripts/install-addin.ps1 did for Revit.
+  -->
+  <PropertyGroup>
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2021'">24.0.0</_GvrAutoCadNetVersion>
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2022'">24.1.51000</_GvrAutoCadNetVersion>
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2023'">24.2.0</_GvrAutoCadNetVersion>
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2024'">24.3.0</_GvrAutoCadNetVersion>
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2025'">25.0.1</_GvrAutoCadNetVersion>
+    <!-- 25.1.1 on NuGet is net10-only (post-.NET10 update); stock Civil 3D 2026 hosts .NET 8. -->
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2026'">25.1.0</_GvrAutoCadNetVersion>
+    <_GvrAutoCadNetVersion Condition="'$(C3DVersion)' == '2027'">26.0.0</_GvrAutoCadNetVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AutoCAD.NET" Version="$(_GvrAutoCadNetVersion)" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(GvrC3DReferencePath)' != ''">
+    <Reference Include="AeccDbMgd">
+      <HintPath>$(GvrC3DReferencePath)AeccDbMgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="AeccPressMgd">
+      <HintPath>$(GvrC3DReferencePath)AeccPressMgd.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,160 @@
+@page
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@model GvrLicense.Api.Pages.Admin.Licenses.IndexModel
+@{
+    ViewData["Title"] = "Licencias";
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <h3 class="card-title">Licencias</h3>
+            </div>
+            <div class="col-12 col-md-8">
+                <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                    <div class="input-group input-group-sm w-auto flex-grow-1 flex-md-grow-0" style="max-width: 16rem">
+                        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                        <input id="licenses-filter" type="search" class="form-control" placeholder="Buscar…" aria-label="Buscar" style="min-width: 8rem" />
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#createLicenseModal">
+                        <i class="bi bi-key me-1" aria-hidden="true"></i> Nueva licencia
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        @if (Model.Rows.Count == 0)
+        {
+            <div class="text-center text-secondary py-4">
+                <p class="mb-3">Sin licencias todavía. Necesitas un cliente y un plan activos.</p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <a href="/Admin/Customers/Index" class="btn btn-outline-secondary">Ir a clientes</a>
+                    @if (Model.CustomerOptions.Count > 0 && Model.PlanOptions.Count > 0)
+                    {
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createLicenseModal">
+                            <i class="bi bi-key me-1" aria-hidden="true"></i> Nueva licencia
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div id="licenses-table"></div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="createLicenseModal" tabindex="-1" data-bs-focus="false"
+     aria-labelledby="createLicenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Admin/Licenses/Create">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createLicenseModalLabel">Nueva licencia</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    @if (Model.CustomerOptions.Count == 0)
+                    {
+                        <p class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i> No hay clientes todavía — <a href="/Admin/Customers/Index">crea uno primero</a>.</p>
+                    }
+                    @if (Model.PlanOptions.Count == 0)
+                    {
+                        <p class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i> No hay planes activos — <a href="/Admin/Plans/Index">revisa Planes</a>.</p>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <select name="Input.CustomerId" asp-items="Model.CustomerOptions" class="form-select js-searchable" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Plan</label>
+                        <select name="Input.PlanId" asp-items="Model.PlanOptions" class="form-select js-searchable" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de vencimiento</label>
+                        <input name="Input.ValidUntil" type="date" class="form-control" value="@DateOnly.FromDateTime(DateTime.UtcNow.AddYears(1)).ToString("yyyy-MM-dd")" required />
+                        <div class="form-text">El día en que deja de funcionar si no renuevas (fecha del servidor, UTC).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Máx. usuarios</label>
+                        <input name="Input.MaxUsers" type="number" min="1" value="1" class="form-control" required />
+                        <div class="form-text">Personas de la empresa que pueden activar el add-in.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" @(Model.CustomerOptions.Count == 0 || Model.PlanOptions.Count == 0 ? "disabled" : null)>Crear licencia</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (Model.Rows.Count > 0)
+{
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    }));
+    const csrfToken = '@Model.AntiForgeryToken';
+
+    const actionButton = (cell) => {
+      const row = cell.getData();
+      const isActive = row.status === 'Active';
+      const label = isActive ? 'Suspender' : 'Reactivar';
+      const btnClass = isActive ? 'btn-outline-warning' : 'btn-outline-success';
+      return `<div class="d-flex gap-1 justify-content-center flex-wrap">
+                <a href="/Admin/Licenses/Edit?id=${row.id}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                <form method="post" action="/Admin/Licenses/Index?handler=Toggle&licenseId=${row.id}">
+                  <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+                  <button type="submit" class="btn btn-sm ${btnClass}" title="${isActive ? 'El cliente no podrá usar el add-in hasta reactivar' : 'Vuelve a permitir el uso'}">${label}</button>
+                </form>
+              </div>`;
+    };
+
+    const table = new Tabulator('#licenses-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 10,
+      paginationSizeSelector: [10, 25, 50, 100],
+      paginationCounter: 'rows',
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false, headerTooltip: 'Ver más columnas' },
+        { title: 'Clave', field: 'displayKey', minWidth: 170, formatter: (cell) => `<code>${cell.getValue()}</code>`, responsive: 0 },
+        { title: 'Acciones', field: 'id', formatter: actionButton, width: 200, hozAlign: 'center', headerSort: false, responsive: 0 },
+        { title: 'Cliente', field: 'customerName', minWidth: 140, responsive: 1 },
+        { title: 'Estado', field: 'status', formatter: (cell) => window.gvrAdmin.licenseStatusBadge(cell.getValue()), width: 120, hozAlign: 'center', responsive: 2 },
+        { title: 'Plan', field: 'planCode', width: 100, responsive: 3 },
+        { title: 'Vence', field: 'validUntil', width: 120, sorter: 'date', formatter: (cell) => window.gvrAdmin.formatDate(cell.getValue()), responsive: 4 },
+        { title: 'Usuarios', field: 'userCount', width: 110, hozAlign: 'center', formatter: (cell) => `${cell.getValue()} / ${cell.getData().maxUsers}`, responsive: 5 },
+      ],
+    });
+
+    document.getElementById('licenses-filter').addEventListener('input', (e) => {
+      const value = e.target.value;
+      if (value) {
+        table.setFilter([[
+          { field: 'key', type: 'like', value },
+          { field: 'displayKey', type: 'like', value },
+          { field: 'customerName', type: 'like', value },
+          { field: 'planCode', type: 'like', value },
+        ]]);
+      } else {
+        table.clearFilter();
+      }
+    });
+  });
+</script>
+}

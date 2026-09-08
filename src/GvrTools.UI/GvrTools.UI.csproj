@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared WPF layer: MVVM primitives, the shell theme, icon drawing helpers and the Windows
+    dialog services. Revit-free on purpose, so a tool window can be opened from a unit test host
+    or from a plain WPF harness while its look and feel stays consistent across every tool.
+
+    Multi-targeted rather than tied to a Revit release: net48 serves Revit 2021-2024,
+    net8.0-windows serves Revit 2025-2026, and net10.0-windows serves Revit 2027+.
+  -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0-windows;net10.0-windows</TargetFrameworks>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>GvrTools.UI</AssemblyName>
+    <RootNamespace>GvrTools.UI</RootNamespace>
+    <Description>Componentes WPF compartidos por todas las herramientas de GVR Tools.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GvrTools.Core\GvrTools.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Brand assets. Kept in this shared UI project on purpose: they are cross-tool identity, not
+       the property of any single tool. WPF reaches them through pack URIs like
+       "pack://application:,,,/GvrTools.UI;component/Icons/Escudo_GVR.png". -->
+  <ItemGroup>
+    <Resource Include="Icons\Escudo_GVR.png" />
+  </ItemGroup>
+
+</Project>

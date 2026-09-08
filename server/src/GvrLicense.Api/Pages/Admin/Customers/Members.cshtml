@@ -1,0 +1,109 @@
+@page
+@using System.Text.Json
+@model GvrLicense.Api.Pages.Admin.Customers.MembersModel
+@{
+    ViewData["Title"] = $"Miembros -- {Model.CompanyName}";
+}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Miembros de @Model.CompanyName</h3>
+        <div class="card-tools">
+            <a href="/Admin/Customers/Index" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Clientes</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="members-table"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="editMemberModal" tabindex="-1" aria-labelledby="editMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Admin/Customers/Members?customerId=@Model.CustomerId&handler=Edit">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="userId" id="editMemberUserId" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editMemberModalLabel">Editar miembro</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input name="fullName" id="editMemberFullName" class="form-control" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Correo</label>
+                        <input name="email" id="editMemberEmail" type="email" class="form-control" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+    const csrfToken = '@Model.AntiForgeryToken';
+
+    const statusBadge = (cell) => {
+      const isActive = cell.getValue();
+      return `<span class="badge text-bg-${isActive ? 'success' : 'secondary'}">${isActive ? 'Activo' : 'Desactivado'}</span>`;
+    };
+
+    const devicesFormatter = (cell) => cell.getValue().length
+      ? cell.getValue().map((d) => `<span class="badge text-bg-light border me-1">${d}</span>`).join('')
+      : '<span class="text-secondary">sin dispositivos</span>';
+
+    const actionButtons = (cell) => {
+      const row = cell.getData();
+      const label = row.isActive ? 'Desactivar' : 'Reactivar';
+      const btnClass = row.isActive ? 'btn-outline-warning' : 'btn-outline-success';
+      return `<div class="d-flex gap-1 justify-content-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary edit-member-btn"
+                        data-id="${row.id}" data-fullname="${row.fullName.replace(/"/g, '&quot;')}" data-email="${row.email.replace(/"/g, '&quot;')}">Editar</button>
+                <form method="post" action="/Admin/Customers/Members?customerId=@Model.CustomerId&handler=Toggle&userId=${row.id}">
+                  <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+                  <button type="submit" class="btn btn-sm ${btnClass}">${label}</button>
+                </form>
+              </div>`;
+    };
+
+    new Tabulator('#members-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 10,
+      paginationSizeSelector: [10, 25, 50, 100],
+      placeholder: 'Sin miembros todavía -- nacen solos la primera vez que alguien activa la licencia con su correo.',
+      columns: [
+        { formatter: 'responsiveCollapse', width: 30, minWidth: 30, hozAlign: 'center', headerSort: false, resizable: false },
+        { title: 'Nombre', field: 'fullName', minWidth: 150, responsive: 0 },
+        { title: 'Correo', field: 'email', minWidth: 180, responsive: 1 },
+        { title: 'Estado', field: 'isActive', formatter: statusBadge, width: 130, hozAlign: 'center', responsive: 2 },
+        { title: '', field: 'id', formatter: actionButtons, width: 220, hozAlign: 'center', headerSort: false, responsive: 3 },
+        { title: 'Dispositivos', field: 'devices', minWidth: 200, formatter: devicesFormatter, responsive: 4 },
+        { title: 'Alta', field: 'createdAtUtc', width: 120, sorter: 'date', formatter: (cell) => cell.getValue()?.slice(0, 10), responsive: 5 },
+      ],
+    });
+
+    const editModalEl = document.getElementById('editMemberModal');
+    const editModal = new bootstrap.Modal(editModalEl);
+    document.getElementById('members-table').addEventListener('click', (e) => {
+      const btn = e.target.closest('.edit-member-btn');
+      if (!btn) return;
+      document.getElementById('editMemberUserId').value = btn.dataset.id;
+      document.getElementById('editMemberFullName').value = btn.dataset.fullname;
+      document.getElementById('editMemberEmail').value = btn.dataset.email;
+      editModal.show();
+    });
+  });
+</script>

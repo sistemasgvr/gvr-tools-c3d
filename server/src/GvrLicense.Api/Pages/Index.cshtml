@@ -1,0 +1,111 @@
+@page
+@model GvrLicense.Api.Pages.IndexModel
+@{
+    ViewData["Title"] = "GVR TOOLS-RVT";
+    Layout = "_PublicLayout";
+    ViewData["SupportEmail"] = Model.SupportEmail;
+    ViewData["TosUrl"] = Model.TosUrl;
+    ViewData["PrivacyUrl"] = Model.PrivacyUrl;
+}
+
+<section class="public-hero">
+    <div class="container">
+        <img src="~/img/escudo-gvr.png" alt="GVR TOOLS-RVT" class="public-hero-logo mb-3" width="96" height="96" />
+        <h1>GVR TOOLS-RVT para Revit</h1>
+        <p class="lead text-body-secondary">
+            Exportación masiva PDF/DWG y más herramientas para tu equipo BIM, directo desde la cinta de Revit.
+        </p>
+        <div class="d-flex flex-wrap gap-2 justify-content-center mt-4">
+            <a href="/download/file" class="btn btn-primary btn-lg">
+                <i class="bi bi-download me-1" aria-hidden="true"></i>
+                @(Model.LatestInstaller is null
+                    ? "Descargar"
+                    : $"Descargar v{Model.LatestInstaller.Version}")
+            </a>
+            <a href="#instalacion" class="btn btn-outline-secondary btn-lg">Ver pasos de instalación</a>
+        </div>
+        @if (Model.LatestInstaller is not null)
+        {
+            <p class="text-body-secondary small mt-3 mb-0">
+                Última versión publicada el @Model.LatestInstaller.PublishedAtUtc.ToLima().ToString("dd/MM/yyyy").
+                @if (!string.IsNullOrWhiteSpace(Model.LatestInstaller.Notes))
+                {
+                    <span>@Model.LatestInstaller.Notes</span>
+                }
+            </p>
+        }
+        else
+        {
+            <p class="text-body-secondary small mt-3 mb-0">Pronto estará disponible el instalador.</p>
+        }
+        @* Sin correo de soporte a la vista aquí a propósito: expone el correo a spam de bots
+           que rastrean landings públicas. Quien necesita licencia pasa por /quote (mismo
+           criterio que "sin soporte visible en el plan free" -- ver AccountLicenseViewModel). *@
+        <p class="text-body-secondary small mt-2">
+            ¿Necesitas una licencia? <a href="/quote">Cotiza aquí</a>.
+        </p>
+    </div>
+</section>
+
+<section id="instalacion" class="container py-5">
+    <h2 class="text-center mb-5">Cómo instalar</h2>
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="public-step">
+                <div class="public-step-number">1</div>
+                <div>
+                    <h5>Descarga y ejecuta el instalador</h5>
+                    <p class="text-body-secondary mb-2">Usa el botón de abajo (o el de la barra superior). Vas a necesitar permisos de administrador en tu PC.</p>
+                    <a href="/download/file" class="btn btn-primary btn-sm">
+                        <i class="bi bi-download me-1" aria-hidden="true"></i> Descargar instalador
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="public-step">
+                <div class="public-step-number">2</div>
+                <div>
+                    <h5>Elige idioma y acepta los términos</h5>
+                    <p class="text-body-secondary mb-0">El wizard pregunta idioma (ES/EN) y requiere aceptar los términos de uso antes de continuar.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="public-step">
+                <div class="public-step-number">3</div>
+                <div>
+                    <h5>Marca tus versiones de Revit</h5>
+                    <p class="text-body-secondary mb-0">El instalador detecta qué versiones de Revit (2021–2027) tienes instaladas y las premarca automáticamente.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="public-step">
+                <div class="public-step-number">4</div>
+                <div>
+                    <h5>Prerrequisito para Revit 2021</h5>
+                    <p class="text-body-secondary mb-0">Si instalas para Revit 2021, el wizard instala <strong>PDF24 Creator</strong> automáticamente (necesario porque Revit 2021 no exporta PDF nativo).</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="public-step">
+                <div class="public-step-number">5</div>
+                <div>
+                    <h5>Instala</h5>
+                    <p class="text-body-secondary mb-0">El wizard copia los archivos y activa la pestaña GVR TOOLS-RVT en cada versión de Revit que marcaste.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="public-step">
+                <div class="public-step-number">6</div>
+                <div>
+                    <h5>Activa tu licencia</h5>
+                    <p class="text-body-secondary mb-0">Abre Revit → pestaña <strong>GVR TOOLS-RVT</strong> → <strong>Cuenta / Licencia</strong> → pega la clave que te enviamos (formato <code>XXXX-XXXX-XXXX</code>).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

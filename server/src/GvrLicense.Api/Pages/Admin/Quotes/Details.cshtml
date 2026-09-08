@@ -1,0 +1,122 @@
+@page "{id:guid}"
+@using GvrLicense.Domain.Entities
+@model GvrLicense.Api.Pages.Admin.Quotes.DetailsModel
+@{
+    ViewData["Title"] = "Cotización";
+}
+
+@{
+    var statusColors = new Dictionary<QuoteRequestStatus, string>
+    {
+        [QuoteRequestStatus.New] = "primary",
+        [QuoteRequestStatus.Contacted] = "warning",
+        [QuoteRequestStatus.Closed] = "secondary"
+    };
+    var statusLabels = new Dictionary<QuoteRequestStatus, string>
+    {
+        [QuoteRequestStatus.New] = "Nueva",
+        [QuoteRequestStatus.Contacted] = "Contactado",
+        [QuoteRequestStatus.Closed] = "Cerrada"
+    };
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h3 class="card-title mb-0">@Model.Quote!.FullName</h3>
+                <span class="badge text-bg-@statusColors[Model.Quote.Status] fs-6">@statusLabels[Model.Quote.Status]</span>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Correo</dt>
+                    <dd class="col-sm-9"><a href="mailto:@Model.Quote.Email">@Model.Quote.Email</a></dd>
+
+                    <dt class="col-sm-3">Teléfono</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(Model.Quote.Phone))
+                        {
+                            <span class="text-body-secondary">-- no informado --</span>
+                        }
+                        else
+                        {
+                            @Model.Quote.Phone
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Empresa</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(Model.Quote.CompanyName))
+                        {
+                            <span class="text-body-secondary">-- no informada --</span>
+                        }
+                        else
+                        {
+                            @Model.Quote.CompanyName
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Plan de interés</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(Model.Quote.PlanCode))
+                        {
+                            <span class="text-body-secondary">-- sin especificar --</span>
+                        }
+                        else
+                        {
+                            <span class="badge text-bg-light border">@Model.Quote.PlanCode</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Mensaje</dt>
+                    <dd class="col-sm-9" style="white-space: pre-wrap">
+                        @if (string.IsNullOrWhiteSpace(Model.Quote.Message))
+                        {
+                            <span class="text-body-secondary">-- sin mensaje --</span>
+                        }
+                        else
+                        {
+                            @Model.Quote.Message
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Recibida</dt>
+                    <dd class="col-sm-9">@Model.Quote.CreatedAtUtc.ToLima().ToString("dd/MM/yyyy HH:mm")</dd>
+
+                    <dt class="col-sm-3">IP de origen</dt>
+                    <dd class="col-sm-9 text-body-secondary">
+                        @(string.IsNullOrWhiteSpace(Model.Quote.SourceIp) ? "--" : Model.Quote.SourceIp)
+                    </dd>
+                </dl>
+            </div>
+            <div class="card-footer d-flex flex-wrap gap-2 justify-content-between">
+                <a href="/Admin/Quotes/Index" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1" aria-hidden="true"></i> Volver al listado
+                </a>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="mailto:@Model.Quote.Email" class="btn btn-outline-primary">
+                        <i class="bi bi-envelope me-1" aria-hidden="true"></i> Escribir
+                    </a>
+                    @if (Model.Quote.Status != QuoteRequestStatus.Contacted)
+                    {
+                        <form method="post" asp-page-handler="SetStatus" asp-route-id="@Model.Quote.Id" asp-route-status="Contacted" class="d-inline">
+                            <button type="submit" class="btn btn-warning">Marcar contactado</button>
+                        </form>
+                    }
+                    @if (Model.Quote.Status != QuoteRequestStatus.Closed)
+                    {
+                        <form method="post" asp-page-handler="SetStatus" asp-route-id="@Model.Quote.Id" asp-route-status="Closed" class="d-inline">
+                            <button type="submit" class="btn btn-secondary">Cerrar</button>
+                        </form>
+                    }
+                    @if (Model.Quote.Status != QuoteRequestStatus.New)
+                    {
+                        <form method="post" asp-page-handler="SetStatus" asp-route-id="@Model.Quote.Id" asp-route-status="New" class="d-inline">
+                            <button type="submit" class="btn btn-outline-primary">Reabrir</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

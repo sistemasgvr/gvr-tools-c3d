@@ -1,0 +1,345 @@
+@page
+@using System.Text.Json
+@using GvrLicense.Domain.Entities
+@model GvrLicense.Api.Pages.Admin.Releases.IndexModel
+@{
+    ViewData["Title"] = "Actualizaciones";
+}
+
+@if (TempData["Saved"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Release publicado en MinIO.
+        @if (TempData["PublicUrl"] != null)
+        {
+            <div class="mt-2">
+                Enlace para el cliente (landing):
+                <a href="@TempData["PublicUrl"]" class="alert-link" target="_blank" rel="noopener">@TempData["PublicUrl"]</a>
+            </div>
+        }
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+@if (TempData["FileNameMismatch"] != null)
+{
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        @TempData["FileNameMismatch"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+@if (!Model.MinioConfigured)
+{
+    <div class="alert alert-warning" role="alert">
+        MinIO no está configurado. En EasyPanel define
+        <code>Minio__Endpoint</code>, <code>Minio__AccessKey</code>, <code>Minio__SecretKey</code> y
+        <code>Minio__Bucket=gvr-tools-releases</code>.
+    </div>
+}
+
+<div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <div class="fw-semibold">Enlace para el cliente</div>
+            <div class="text-secondary small">
+                Landing pública del <strong>último instalador</strong> (tipo Instalador).
+                Los releases tipo <em>Update</em> no aparecen ahí: solo los ofrece el add-in en Revit.
+            </div>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <code id="public-installer-url" class="user-select-all">@Model.PublicInstallerUrl</code>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="copy-public-url">Copiar</button>
+            <a class="btn btn-primary btn-sm" href="@Model.PublicInstallerUrl" target="_blank" rel="noopener">Abrir</a>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info" role="note">
+    <strong>Cómo registrar bien:</strong>
+    <ul class="mb-0 small">
+        <li><strong>Instalador</strong> — Setup nuevo para clientes (WhatsApp/correo → <code>/download</code>). Archivo tip. <code>GvrTools-Setup-1.0.0.exe</code> con la misma versión en el nombre.</li>
+        <li><strong>Update</strong> — Lo que el add-in detecta al abrir Revit. Versión mayor que la instalada (ej. <code>1.0.1</code>) y archivo renombrado acorde (<code>GvrTools-Setup-1.0.1.exe</code>), no reuses el nombre del 1.0.0.</li>
+    </ul>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <h3 class="card-title">Actualizaciones (releases)</h3>
+            </div>
+            <div class="col-12 col-md-8">
+                <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                    <button type="button" class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#createReleaseModal" @(Model.MinioConfigured ? null : "disabled")>
+                        <i class="bi bi-cloud-upload me-1" aria-hidden="true"></i> Publicar release
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        @if (Model.Rows.Count == 0)
+        {
+            <div class="text-center text-secondary py-4">
+                <p class="mb-3">Aún no hay versiones. Sube el <strong>Setup .exe</strong> (tipo instalador) para generar el enlace de descarga.</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createReleaseModal" @(Model.MinioConfigured ? null : "disabled")>
+                    Publicar release
+                </button>
+            </div>
+        }
+        else
+        {
+            <div id="releases-table"></div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="createReleaseModal" tabindex="-1" aria-labelledby="createReleaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="create-release-form" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createReleaseModalLabel">Publicar release</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div asp-validation-summary="All" class="text-danger mb-2"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Versión</label>
+                        <input name="Input.Version" id="release-version" type="text" class="form-control"
+                               pattern="^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$"
+                               placeholder="1.0.0" maxlength="64" required />
+                        <div class="form-text">SemVer (ej. 1.0.1). Debe ser mayor que la última del mismo tipo y coincidir con el nombre del archivo cuando puedas.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select name="Input.Kind" class="form-select">
+                            <option value="@ReleaseKinds.Installer" selected>Instalador — enlace /download para clientes nuevos</option>
+                            <option value="@ReleaseKinds.Update">Update — aviso dentro del add-in (Revit ya instalado)</option>
+                        </select>
+                        <div class="form-text">
+                            No marques Update si quieres que salga en la web pública: ahí solo cuenta el último Instalador.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Archivo</label>
+                        <input name="ArtifactFile" type="file" class="form-control" accept=".exe,.zip,.7z" required />
+                        <div class="form-text">
+                            Recomendado: <code id="suggested-filename">GvrTools-Setup-1.0.0.exe</code>
+                            (misma versión que el campo de arriba).
+                        </div>
+                        <div id="upload-progress-container" class="progress mt-2 d-none" role="progressbar"
+                             aria-label="Progreso de subida" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                            <div id="upload-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+                        </div>
+                        <div id="upload-status" class="form-text mt-1"></div>
+                        <div id="upload-error" class="text-danger small mt-2 d-none" role="alert"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notas de la versión</label>
+                        <textarea name="Input.Notes" class="form-control" rows="3" placeholder="Qué hay de nuevo…"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="create-release-submit">Subir y publicar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+  document.getElementById('release-version')?.addEventListener('input', (e) => {
+    const v = (e.target.value || '').trim().replace(/^v/i, '') || '1.0.0';
+    const hint = document.getElementById('suggested-filename');
+    if (hint) hint.textContent = `GvrTools-Setup-${v}.exe`;
+  });
+
+  document.getElementById('copy-public-url')?.addEventListener('click', async () => {
+    const text = document.getElementById('public-installer-url')?.textContent?.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+  });
+
+  document.getElementById('create-release-form')?.addEventListener('submit', (event) => {
+    if (!window.XMLHttpRequest || !window.FormData) return;
+
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = document.getElementById('create-release-submit');
+    const container = document.getElementById('upload-progress-container');
+    const bar = document.getElementById('upload-progress-bar');
+    const error = document.getElementById('upload-error');
+    const status = document.getElementById('upload-status');
+    const xhr = new XMLHttpRequest();
+    const progressId = (crypto.randomUUID && crypto.randomUUID()) ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    let pollTimer = null;
+
+    const setProgress = (percent, label) => {
+      const pct = Math.max(0, Math.min(100, percent));
+      bar.style.width = `${pct}%`;
+      bar.textContent = `${pct}%`;
+      container.setAttribute('aria-valuenow', pct.toString());
+      if (status) status.textContent = label || '';
+    };
+
+    const stopPoll = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    };
+
+    const startMinioPoll = () => {
+      stopPoll();
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`/Admin/Releases?handler=UploadProgress&progressId=${encodeURIComponent(progressId)}`, {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'same-origin'
+          });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (typeof data.percent === 'number') {
+            setProgress(data.percent, data.phase || '');
+          }
+          if (data.error) {
+            error.textContent = data.error;
+            error.classList.remove('d-none');
+          }
+          if (data.done) stopPoll();
+        } catch { }
+      }, 400);
+    };
+
+    submit.disabled = true;
+    error.classList.add('d-none');
+    error.textContent = '';
+    container.classList.remove('d-none');
+    bar.classList.add('progress-bar-animated', 'progress-bar-striped');
+    setProgress(0, 'Preparando…');
+
+    xhr.upload.addEventListener('progress', (progressEvent) => {
+      if (!progressEvent.lengthComputable || progressEvent.total <= 0) {
+        setProgress(15, 'Enviando al servidor…');
+        return;
+      }
+      const uploaded = progressEvent.loaded / progressEvent.total;
+      const percent = Math.max(1, Math.min(65, Math.round(uploaded * 65)));
+      const mb = (progressEvent.loaded / (1024 * 1024)).toFixed(1);
+      const totalMb = (progressEvent.total / (1024 * 1024)).toFixed(1);
+      setProgress(percent, `Enviando al servidor… ${mb}/${totalMb} MB`);
+    });
+
+    xhr.upload.addEventListener('load', () => {
+      setProgress(68, 'Recibido. Calculando / subiendo a MinIO…');
+      startMinioPoll();
+    });
+
+    xhr.addEventListener('load', () => {
+      stopPoll();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        setProgress(100, 'Listo');
+        let redirect = '/Admin/Releases';
+        try {
+          redirect = JSON.parse(xhr.responseText).redirect || redirect;
+        } catch {
+          redirect = xhr.responseURL || redirect;
+        }
+        window.location.assign(redirect);
+        return;
+      }
+
+      let message = 'No se pudo publicar el release.';
+      try {
+        message = JSON.parse(xhr.responseText).message || message;
+      } catch { }
+      error.textContent = message;
+      error.classList.remove('d-none');
+      submit.disabled = false;
+      bar.classList.remove('progress-bar-animated');
+      if (status) status.textContent = '';
+    });
+
+    xhr.addEventListener('error', () => {
+      stopPoll();
+      error.textContent = 'La subida falló por un problema de red. Inténtalo de nuevo.';
+      error.classList.remove('d-none');
+      submit.disabled = false;
+      bar.classList.remove('progress-bar-animated');
+      if (status) status.textContent = '';
+    });
+
+    xhr.open('POST', form.action || window.location.href);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.setRequestHeader('X-Upload-Progress-Id', progressId);
+    xhr.send(new FormData(form));
+  });
+</script>
+
+@if (Model.Rows.Count > 0)
+{
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+    const kindBadge = (cell) => {
+      const k = cell.getValue();
+      if (k === 'installer') return '<span class="badge text-bg-primary">Instalador</span>';
+      if (k === 'update') return '<span class="badge text-bg-secondary">Update</span>';
+      return k;
+    };
+
+    const versionCell = (cell) => {
+      const row = cell.getData();
+      let html = `<code>${cell.getValue()}</code>`;
+      if (row.fileNameMismatch) {
+        html += ' <span class="badge text-bg-warning" title="El nombre del archivo no coincide con esta versión">Nombre≠versión</span>';
+      }
+      return html;
+    };
+
+    new Tabulator('#releases-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 10,
+      paginationCounter: 'rows',
+      initialSort: [],
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false },
+        { title: 'Versión', field: 'version', minWidth: 120, formatter: versionCell, responsive: 0 },
+        { title: 'Tipo', field: 'kind', width: 120, formatter: kindBadge, responsive: 0 },
+        { title: 'Archivo', field: 'fileName', minWidth: 160, responsive: 1 },
+        { title: 'Publicado', field: 'publishedAtUtc', width: 130, formatter: (c) => window.gvrAdmin.formatDate(c.getValue()), responsive: 0 },
+        { title: 'Clave MinIO', field: 'artifactLocation', minWidth: 180, responsive: 2 },
+        { title: 'Notas', field: 'notes', minWidth: 140, responsive: 3 },
+        {
+          title: 'Acciones',
+          field: 'id',
+          width: 95,
+          headerSort: false,
+          hozAlign: 'center',
+          formatter: (cell) => `<a class="btn btn-outline-primary btn-sm" href="/Admin/Releases/Edit?id=${encodeURIComponent(cell.getValue())}">Editar</a>`,
+          responsive: 0,
+        },
+      ],
+    });
+  });
+</script>
+}

@@ -1,0 +1,23 @@
+@page
+@model GvrLicense.Api.Pages.Admin.LoginModel
+@{
+    Layout = "_LoginLayout";
+    ViewData["Title"] = "Iniciar sesión";
+}
+<p class="login-box-msg">Panel de administración GVR TOOLS-RVT</p>
+<form method="post">
+    <label class="visually-hidden" asp-for="Input.Username">Usuario</label>
+    <div class="input-group mb-3">
+        <input asp-for="Input.Username" class="form-control" placeholder="Usuario" autofocus />
+        <div class="input-group-text"><i class="bi bi-person"></i></div>
+    </div>
+    <label class="visually-hidden" asp-for="Input.Password">Contraseña</label>
+    <div class="input-group mb-3">
+        <input asp-for="Input.Password" type="password" class="form-control" placeholder="Contraseña" />
+        <div class="input-group-text"><i class="bi bi-lock-fill"></i></div>
+    </div>
+    <div asp-validation-summary="All" class="text-danger mb-3"></div>
+    <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary">Entrar</button>
+    </div>
+</form>

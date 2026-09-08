@@ -1,0 +1,145 @@
+@page
+@using System.Text.Json
+@model GvrLicense.Api.Pages.Admin.Customers.IndexModel
+@{
+    ViewData["Title"] = "Clientes";
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <h3 class="card-title">Clientes</h3>
+            </div>
+            <div class="col-12 col-md-8">
+                <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                    <div class="input-group input-group-sm w-auto flex-grow-1 flex-md-grow-0" style="max-width: 16rem">
+                        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                        <input id="customers-filter" type="search" class="form-control" placeholder="Buscar…" aria-label="Buscar" style="min-width: 8rem" />
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#createCustomerModal">
+                        <i class="bi bi-person-plus me-1" aria-hidden="true"></i> Nuevo cliente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        @if (Model.Rows.Count == 0)
+        {
+            <div class="text-center text-secondary py-4">
+                <p class="mb-3">Aún no hay empresas. Crea el primer cliente para poder emitir licencias.</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createCustomerModal">
+                    <i class="bi bi-person-plus me-1" aria-hidden="true"></i> Nuevo cliente
+                </button>
+            </div>
+        }
+        else
+        {
+            <div id="customers-table"></div>
+        }
+    </div>
+</div>
+
+<div class="modal fade" id="createCustomerModal" tabindex="-1" aria-labelledby="createCustomerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Admin/Customers/Create">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createCustomerModalLabel">Nuevo cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Empresa</label>
+                        <input name="Input.CompanyName" class="form-control" placeholder="Ej. Constructora Andes SAC" required />
+                        <div class="form-text">Empresa que compra o usa GVR Tools.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contacto</label>
+                        <input name="Input.ContactName" class="form-control" placeholder="Nombre de la persona de contacto" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Correo</label>
+                        <input name="Input.ContactEmail" type="email" class="form-control" placeholder="correo@empresa.com" required />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notas de pago</label>
+                        <textarea name="Input.PaymentNotes" class="form-control" placeholder="Ej. Pagó por Yape el 12/03 — factura 001"></textarea>
+                        <div class="form-text">Solo para ti: recordatorios de cómo o cuándo pagó.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (Model.Rows.Count > 0)
+{
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+    const csrfToken = '@Model.AntiForgeryToken';
+
+    const statusBadge = (cell) => {
+      const isActive = cell.getValue();
+      return `<span class="badge text-bg-${isActive ? 'success' : 'secondary'}">${isActive ? 'Activo' : 'Desactivado'}</span>`;
+    };
+
+    const actionButtons = (cell) => {
+      const row = cell.getData();
+      const label = row.isActive ? 'Desactivar' : 'Reactivar';
+      const btnClass = row.isActive ? 'btn-outline-warning' : 'btn-outline-success';
+      return `<div class="d-flex gap-1 justify-content-center flex-wrap">
+                <a href="/Admin/Customers/Edit?id=${row.id}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                <a href="/Admin/Customers/Members?customerId=${row.id}" class="btn btn-sm btn-outline-secondary" title="Usuarios de la empresa">Miembros</a>
+                <form method="post" action="/Admin/Customers/Index?handler=Toggle&customerId=${row.id}">
+                  <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+                  <button type="submit" class="btn btn-sm ${btnClass}">${label}</button>
+                </form>
+              </div>`;
+    };
+
+    const table = new Tabulator('#customers-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 10,
+      paginationSizeSelector: [10, 25, 50, 100],
+      paginationCounter: 'rows',
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false, headerTooltip: 'Ver más columnas' },
+        { title: 'Empresa', field: 'companyName', minWidth: 140, responsive: 0 },
+        { title: 'Acciones', field: 'id', width: 240, hozAlign: 'center', headerSort: false, responsive: 0, formatter: actionButtons },
+        { title: 'Correo', field: 'contactEmail', minWidth: 180, responsive: 1 },
+        { title: 'Estado', field: 'isActive', formatter: statusBadge, width: 120, hozAlign: 'center', responsive: 2 },
+        { title: 'Licencias', field: 'licenseCount', width: 100, hozAlign: 'center', responsive: 3 },
+        { title: 'Alta', field: 'createdAtUtc', width: 110, sorter: 'date', formatter: (cell) => window.gvrAdmin.formatDate(cell.getValue()), responsive: 4 },
+        { title: 'Contacto', field: 'contactName', minWidth: 120, responsive: 5 },
+        { title: 'Notas de pago', field: 'paymentNotes', minWidth: 160, responsive: 6 },
+      ],
+    });
+
+    document.getElementById('customers-filter').addEventListener('input', (e) => {
+      const value = e.target.value;
+      if (value) {
+        table.setFilter([[
+          { field: 'companyName', type: 'like', value },
+          { field: 'contactName', type: 'like', value },
+          { field: 'contactEmail', type: 'like', value },
+        ]]);
+      } else {
+        table.clearFilter();
+      }
+    });
+  });
+</script>
+}

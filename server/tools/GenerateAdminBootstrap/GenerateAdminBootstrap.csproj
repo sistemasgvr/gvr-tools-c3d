@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Siembra el PRIMER admin en la tabla admin_user cuando está vacía (docs/LICENSING_PLAN.md,
+       Pieza 5). Altas siguientes se hacen desde /Admin/Users/Create ya logueado; esta herramienta
+       solo resuelve el arranque en frío. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GvrLicense.Domain\GvrLicense.Domain.csproj" />
+    <ProjectReference Include="..\..\src\GvrLicense.Infrastructure\GvrLicense.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

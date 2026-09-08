@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tiny end-user installer (WinExe, .NET Framework 4.8). Ships inside the release ZIP next to
+    GvrTools.bundle. End users double-click it — no Visual Studio / dotnet SDK required.
+    Windows 10/11 already have .NET Framework 4.8.
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Instalar-GvrTools</AssemblyName>
+    <RootNamespace>GvrTools.Installer</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)..\..\dist\installer-build\</OutputPath>
+    <ApplicationIcon></ApplicationIcon>
+    <Product>GVR Tools Installer</Product>
+    <Company>GVR</Company>
+    <Version>1.0.0</Version>
+    <Description>Instala el complemento GVR Tools en AutoCAD Civil 3D.</Description>
+  </PropertyGroup>
+
+</Project>

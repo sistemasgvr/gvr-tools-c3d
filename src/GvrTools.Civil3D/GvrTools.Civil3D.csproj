@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Everything that touches the AutoCAD / Civil 3D API lives here: the ribbon contract every tool
+    implements, the job scheduler, layout reading and the export engines. Tools depend on this;
+    this depends on no tool.
+  -->
+
+  <Import Project="..\GvrTools.Civil3D.props" />
+
+  <PropertyGroup>
+    <AssemblyName>GvrTools.Civil3D</AssemblyName>
+    <RootNamespace>GvrTools.Civil3D</RootNamespace>
+    <Description>Adaptadores de la API de AutoCAD Civil 3D y motores de exportación de GVR Tools.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GvrTools.Core\GvrTools.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,71 @@
+<Project>
+
+  <!--
+    Shared build configuration for every project under src/.
+
+    ONE knob drives the whole Civil 3D matrix: the `C3DVersion` property. It selects the target
+    framework, the AutoCAD/Civil 3D API reference package and the C3Dxxxx_OR_GREATER compilation
+    symbols, so the same source tree compiles for Civil 3D 2021 through 2026.
+
+      dotnet build src/GvrTools.App -c Release -p:C3DVersion=2024
+
+    Visual Studio users can instead pick a "Debug C24" / "Release C24" configuration; the version
+    is inferred from the configuration name below.
+
+    Historical note: this solution originally targeted Revit (RevitVersion / REVITxxxx symbols).
+    It was retargeted to AutoCAD Civil 3D; see GvrTools.Civil3D.props for the API references.
+  -->
+
+  <PropertyGroup>
+    <Configurations>Debug;Release;Debug C21;Release C21;Debug C22;Release C22;Debug C23;Release C23;Debug C24;Release C24;Debug C25;Release C25;Debug C26;Release C26;Debug C27;Release C27</Configurations>
+    <GvrRepoRoot>$(MSBuildThisFileDirectory)..\</GvrRepoRoot>
+    <GvrBuildRoot>$(GvrRepoRoot)build\</GvrBuildRoot>
+  </PropertyGroup>
+
+  <!-- Infer C3DVersion from the configuration name when it was not passed explicitly. -->
+  <PropertyGroup Condition="'$(C3DVersion)' == ''">
+    <C3DVersion Condition="$(Configuration.Contains('C21'))">2021</C3DVersion>
+    <C3DVersion Condition="$(Configuration.Contains('C22'))">2022</C3DVersion>
+    <C3DVersion Condition="$(Configuration.Contains('C23'))">2023</C3DVersion>
+    <C3DVersion Condition="$(Configuration.Contains('C24'))">2024</C3DVersion>
+    <C3DVersion Condition="$(Configuration.Contains('C25'))">2025</C3DVersion>
+    <C3DVersion Condition="$(Configuration.Contains('C26'))">2026</C3DVersion>
+    <C3DVersion Condition="$(Configuration.Contains('C27'))">2027</C3DVersion>
+    <!-- Default target: the oldest supported release. -->
+    <C3DVersion Condition="'$(C3DVersion)' == ''">2021</C3DVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Civil 3D 2021-2024 run on .NET Framework 4.8; 2025-2026 moved their host to .NET 8;
+         2027 moved again to .NET 10. -->
+    <C3DTargetFramework>net48</C3DTargetFramework>
+    <C3DTargetFramework Condition="'$(C3DVersion)' &gt;= '2025'">net8.0-windows</C3DTargetFramework>
+    <C3DTargetFramework Condition="'$(C3DVersion)' &gt;= '2027'">net10.0-windows</C3DTargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <PlatformTarget>x64</PlatformTarget>
+    <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <NeutralLanguage>es</NeutralLanguage>
+    <Company>GVR</Company>
+    <Product>GVR Tools para Civil 3D</Product>
+    <Version>1.0.0</Version>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <AssemblyInformationalVersion>$(Version)</AssemblyInformationalVersion>
+    <!-- The host process already has its own copies of most common NuGet libraries. Every runtime
+         dependency we ship is a potential assembly-version clash, so this solution deliberately
+         has ZERO runtime NuGet dependencies: the only packages referenced are compile-time-only
+         AutoCAD/Civil 3D API reference assemblies. -->
+    <NoWarn>$(NoWarn);NU1701;MSB3277;CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- The C3Dxxxx symbols deliberately live in GvrTools.Civil3D.props, not here: only the projects
+       that talk to the AutoCAD/Civil 3D API should be recompiled when the target release changes.
+       Keeping them out of the version-agnostic libraries is what lets Core and UI build once and
+       be reused. -->
+
+</Project>

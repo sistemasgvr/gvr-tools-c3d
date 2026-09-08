@@ -1,0 +1,57 @@
+@page
+@model GvrLicense.Api.Pages.Admin.Plans.EditModel
+@{
+    ViewData["Title"] = "Editar plan";
+}
+
+@if (TempData["Saved"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Plan actualizado. Los clientes verán los cambios en el próximo heartbeat (como máximo un día).
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<div class="card card-primary card-outline">
+    <div class="card-header">
+        <h3 class="card-title">Editar plan <span class="text-body-secondary fw-normal">@Model.Input.DisplayName</span></h3>
+        <div class="card-tools">
+            <span class="badge text-bg-secondary font-monospace">@Model.Code</span>
+        </div>
+    </div>
+    <form method="post">
+        <div class="card-body">
+            <div class="mb-4" style="max-width: 28rem">
+                <label asp-for="Input.DisplayName" class="form-label">Nombre visible</label>
+                <input asp-for="Input.DisplayName" class="form-control" required />
+                <div class="form-text">Así aparece el plan al crear licencias (ej. Starter, Pro).</div>
+            </div>
+
+            <div class="mb-4">
+                <div class="form-check">
+                    <input asp-for="Input.ServiceSuspended" class="form-check-input" />
+                    <label asp-for="Input.ServiceSuspended" class="form-check-label">Suspender servicio (emergencia)</label>
+                </div>
+                <div class="form-text">
+                    Bloqueo temporal de la API pública (activate, activate-free, heartbeat, usage) para licencias de este plan.
+                    No desactiva el plan del catálogo — pensado para DDoS / abuso, sobre todo Free.
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <h5 class="mb-3">Qué incluye este plan</h5>
+            <p class="text-body-secondary small mb-4">
+                Activa o desactiva lo que el add-in permitirá. No hace falta recompilar nada: aplica a todas las licencias de este plan.
+            </p>
+
+            <partial name="~/Pages/Shared/_PlanFeaturesEditor.cshtml" for="Input.Features" />
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1" aria-hidden="true"></i> Guardar cambios
+            </button>
+            <a href="/Admin/Plans/Index" class="btn btn-outline-secondary">Volver a planes</a>
+        </div>
+    </form>
+</div>

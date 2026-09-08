@@ -1,0 +1,157 @@
+@page
+@using System.Text.Json
+@model GvrLicense.Api.Pages.Admin.Users.IndexModel
+@{
+    ViewData["Title"] = "Administradores";
+}
+
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <h3 class="card-title">Administradores</h3>
+            </div>
+            <div class="col-12 col-md-8">
+                <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                    <div class="input-group input-group-sm w-auto flex-grow-1 flex-md-grow-0" style="max-width: 16rem">
+                        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                        <input id="admins-filter" type="search" class="form-control" placeholder="Buscar…" aria-label="Buscar" style="min-width: 8rem" />
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#createAdminModal">
+                        <i class="bi bi-shield-lock me-1" aria-hidden="true"></i> Nuevo administrador
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="admins-table"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="createAdminModal" tabindex="-1" aria-labelledby="createAdminModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Admin/Users/Create">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createAdminModalLabel">Nuevo administrador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-body-secondary small">Quién podrá entrar a este panel de administración.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Usuario</label>
+                        <input name="Input.Username" class="form-control" placeholder="ej. admin2" required autocomplete="off" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input name="Input.Password" type="password" class="form-control" required minlength="8" autocomplete="new-password" />
+                        <div class="form-text">Mínimo 8 caracteres.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="/Admin/Users/Index?handler=ResetPassword">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="userId" id="resetPasswordUserId" />
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resetPasswordModalLabel">Restablecer contraseña de <span id="resetPasswordUsername"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nueva contraseña</label>
+                        <input name="newPassword" type="password" class="form-control" required minlength="8" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Restablecer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+    const csrfToken = '@Model.AntiForgeryToken';
+
+    const usernameFormatter = (cell) => {
+      const row = cell.getData();
+      return row.isSelf ? `${row.username} <span class="badge text-bg-info ms-1">tú</span>` : row.username;
+    };
+
+    const statusBadge = (cell) => {
+      const isActive = cell.getValue();
+      return `<span class="badge text-bg-${isActive ? 'success' : 'secondary'}">${isActive ? 'Activo' : 'Desactivado'}</span>`;
+    };
+
+    const actionButtons = (cell) => {
+      const row = cell.getData();
+      const resetBtn = `<button type="button" class="btn btn-sm btn-outline-secondary reset-password-btn" data-id="${row.id}" data-username="${row.username}">Restablecer</button>`;
+      if (row.isSelf) return `<div class="d-flex gap-1 justify-content-center flex-wrap">${resetBtn}</div>`;
+      const label = row.isActive ? 'Desactivar' : 'Reactivar';
+      const btnClass = row.isActive ? 'btn-outline-warning' : 'btn-outline-success';
+      return `<div class="d-flex gap-1 justify-content-center flex-wrap">
+                ${resetBtn}
+                <form method="post" action="/Admin/Users/Index?handler=Toggle&userId=${row.id}">
+                  <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+                  <button type="submit" class="btn btn-sm ${btnClass}">${label}</button>
+                </form>
+              </div>`;
+    };
+
+    const table = new Tabulator('#admins-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 10,
+      paginationSizeSelector: [10, 25, 50, 100],
+      paginationCounter: 'rows',
+      placeholder: 'Sin administradores',
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false },
+        { title: 'Usuario', field: 'username', minWidth: 160, formatter: usernameFormatter, responsive: 0 },
+        { title: 'Acciones', field: 'id', formatter: actionButtons, width: 240, hozAlign: 'center', headerSort: false, responsive: 0 },
+        { title: 'Estado', field: 'isActive', formatter: statusBadge, width: 130, hozAlign: 'center', responsive: 1 },
+        { title: 'Alta', field: 'createdAtUtc', width: 120, sorter: 'date', formatter: (cell) => window.gvrAdmin.formatDate(cell.getValue()), responsive: 2 },
+      ],
+    });
+
+    document.getElementById('admins-filter').addEventListener('input', (e) => {
+      const value = e.target.value;
+      table.setFilter(value ? [{ field: 'username', type: 'like', value }] : []);
+    });
+
+    const resetModalEl = document.getElementById('resetPasswordModal');
+    const resetModal = new bootstrap.Modal(resetModalEl);
+    document.getElementById('admins-table').addEventListener('click', (e) => {
+      const btn = e.target.closest('.reset-password-btn');
+      if (!btn) return;
+      document.getElementById('resetPasswordUserId').value = btn.dataset.id;
+      document.getElementById('resetPasswordUsername').textContent = btn.dataset.username;
+      resetModal.show();
+    });
+  });
+</script>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pure .NET layer: naming, sanitising, settings, logging and batch result models.
+    Deliberately has NO reference to the Revit API, so it can be unit tested on the command line
+    (see tests/GvrTools.Core.Tests) and reused by any future tool.
+  -->
+
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0;net10.0</TargetFrameworks>
+    <AssemblyName>GvrTools.Core</AssemblyName>
+    <RootNamespace>GvrTools.Core</RootNamespace>
+    <Description>Lógica de dominio de GVR Tools, independiente de Revit.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gvr-license-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "server/src/GvrLicense.Api/GvrLicense.Api.csproj", "--urls", "http://localhost:5299"],
+      "port": 5299
+    }
+  ]
+}

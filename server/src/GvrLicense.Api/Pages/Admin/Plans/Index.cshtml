@@ -1,0 +1,149 @@
+@page
+@using System.Text.Json
+@model GvrLicense.Api.Pages.Admin.Plans.IndexModel
+@{
+    ViewData["Title"] = "Planes";
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+                <h3 class="card-title">Planes</h3>
+            </div>
+            <div class="col-12 col-md-8">
+                <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                    <div class="input-group input-group-sm w-auto flex-grow-1 flex-md-grow-0" style="max-width: 16rem">
+                        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                        <input id="plans-filter" type="search" class="form-control" placeholder="Buscar…" aria-label="Buscar" style="min-width: 8rem" />
+                    </div>
+                    <div class="form-check form-switch mb-0 align-self-center">
+                        <input class="form-check-input" type="checkbox" role="switch" id="plans-show-inactive" checked />
+                        <label class="form-check-label text-nowrap small" for="plans-show-inactive">Mostrar descontinuados</label>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#createPlanModal">
+                        <i class="bi bi-clipboard-plus me-1" aria-hidden="true"></i> Nuevo plan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="plans-table"></div>
+    </div>
+</div>
+
+<div class="modal fade" id="createPlanModal" tabindex="-1" aria-labelledby="createPlanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post" action="/Admin/Plans/Index">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createPlanModalLabel">Nuevo plan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Código interno</label>
+                        <input name="Input.Code" class="form-control" placeholder="ej. starter, pro" required />
+                        <div class="form-text">No se muestra al cliente final; sirve para identificar el plan.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre visible</label>
+                        <input name="Input.DisplayName" class="form-control" placeholder="ej. Starter, Pro" required />
+                    </div>
+                    <hr />
+                    <h6 class="mb-3">Qué incluye</h6>
+                    <partial name="~/Pages/Shared/_PlanFeaturesEditor.cshtml" for="Input.Features" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear plan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+    const csrfToken = '@Model.AntiForgeryToken';
+
+    const statusBadge = (cell) => {
+      const isActive = cell.getValue();
+      return `<span class="badge text-bg-${isActive ? 'success' : 'secondary'}">${isActive ? 'Activo' : 'Descontinuado'}</span>`;
+    };
+
+    const serviceBadge = (cell) => {
+      const suspended = cell.getValue();
+      return suspended
+        ? `<span class="badge text-bg-danger" title="API bloqueada (emergencia / DDoS). El plan sigue en catálogo.">Suspendido</span>`
+        : `<span class="badge text-bg-success" title="API del plan operativa.">Activo (servicio)</span>`;
+    };
+
+    const actionButtons = (cell) => {
+      const row = cell.getData();
+      const catalogLabel = row.isActive ? 'Descontinuar' : 'Reactivar';
+      const catalogClass = row.isActive ? 'btn-outline-warning' : 'btn-outline-success';
+      const serviceLabel = row.serviceSuspended ? 'Reactivar servicio' : 'Suspender servicio';
+      const serviceClass = row.serviceSuspended ? 'btn-outline-success' : 'btn-outline-danger';
+      const serviceTitle = row.serviceSuspended
+        ? 'Vuelve a permitir activate / heartbeat / usage para este plan.'
+        : 'Bloqueo de emergencia (DDoS): rechaza la API pública sin descontinuar el plan. Útil sobre todo en Free.';
+      return `<div class="d-flex flex-wrap gap-1 justify-content-center">
+                <a href="/Admin/Plans/Edit?id=${row.id}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                <form method="post" action="/Admin/Plans/Index?handler=Toggle&planId=${row.id}">
+                  <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+                  <button type="submit" class="btn btn-sm ${catalogClass}" title="Saca o vuelve el plan al selector de licencias nuevas.">${catalogLabel}</button>
+                </form>
+                <form method="post" action="/Admin/Plans/Index?handler=ToggleService&planId=${row.id}">
+                  <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+                  <button type="submit" class="btn btn-sm ${serviceClass}" title="${serviceTitle}">${serviceLabel}</button>
+                </form>
+              </div>`;
+    };
+
+    const table = new Tabulator('#plans-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 10,
+      paginationSizeSelector: [10, 25, 50, 100],
+      placeholder: 'Sin planes todavía',
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false },
+        { title: 'Código', field: 'code', minWidth: 110, responsive: 0 },
+        { title: 'Acciones', field: 'id', width: 340, hozAlign: 'center', headerSort: false, responsive: 0, formatter: actionButtons },
+        { title: 'Nombre', field: 'displayName', minWidth: 130, responsive: 1 },
+        { title: 'Catálogo', field: 'isActive', formatter: statusBadge, width: 130, hozAlign: 'center', responsive: 2 },
+        { title: 'Servicio', field: 'serviceSuspended', formatter: serviceBadge, width: 140, hozAlign: 'center', responsive: 2 },
+        { title: 'Licencias', field: 'licenseCount', width: 100, hozAlign: 'center', responsive: 3 },
+        { title: 'Qué incluye', field: 'featuresSummary', minWidth: 280, responsive: 4 },
+      ],
+    });
+
+    const applyFilters = () => {
+      const value = document.getElementById('plans-filter').value;
+      const showInactive = document.getElementById('plans-show-inactive').checked;
+      const filters = [];
+      if (!showInactive) {
+        filters.push({ field: 'isActive', type: '=', value: true });
+      }
+      if (value) {
+        filters.push([
+          { field: 'code', type: 'like', value },
+          { field: 'displayName', type: 'like', value },
+          { field: 'featuresSummary', type: 'like', value },
+        ]);
+      }
+      table.setFilter(filters);
+    };
+
+    document.getElementById('plans-filter').addEventListener('input', applyFilters);
+    document.getElementById('plans-show-inactive').addEventListener('change', applyFilters);
+  });
+</script>

@@ -1,0 +1,22 @@
+GVR Tools para Civil 3D - Como instalar
+=======================================
+
+USUARIO FINAL (sin Visual Studio / sin .NET SDK)
+------------------------------------------------
+1. Usa el archivo:
+     dist\GvrTools-C3D-1.0.0.zip
+2. Descomprimelo.
+3. Ejecuta Instalar-GvrTools.exe (doble clic).
+4. Reinicia Civil 3D.
+5. Pestana "GVR Tools" o comando: GVRBATCHEXPORT
+
+NO uses Instalar-Dev.bat en un PC sin SDK: ese es solo para desarrolladores.
+
+
+DESARROLLADOR (con .NET SDK)
+----------------------------
+- Instalar en este PC:     Instalar-Dev.bat
+- Generar ZIP para otros:  powershell -File scripts\pack-release.ps1
+
+El ZIP incluye todas las versiones 2021-2027. Civil 3D carga sola
+la carpeta Contents\<suAno>\ segun PackageContents.xml.

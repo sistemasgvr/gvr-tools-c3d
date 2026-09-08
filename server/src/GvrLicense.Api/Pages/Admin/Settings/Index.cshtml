@@ -1,0 +1,41 @@
+@page
+@model GvrLicense.Api.Pages.Admin.Settings.IndexModel
+@{
+    ViewData["Title"] = "Configuración";
+}
+
+@if (TempData["Saved"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Configuración guardada.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<div class="card card-primary card-outline">
+    <div class="card-header">
+        <h3 class="card-title">Configuración del producto</h3>
+    </div>
+    <form method="post">
+        <div class="card-body" style="max-width: 36rem">
+            <p class="text-body-secondary small">Datos que ve el cliente en el add-in (soporte) y enlaces legales del instalador.</p>
+            <div class="mb-3">
+                <label asp-for="Input.SupportEmail" class="form-label">Correo de soporte</label>
+                <input asp-for="Input.SupportEmail" type="email" class="form-control" placeholder="soporte@tuempresa.com" />
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.TermsOfServiceUrl" class="form-label">URL términos y condiciones</label>
+                <input asp-for="Input.TermsOfServiceUrl" type="url" class="form-control" placeholder="https://…" />
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.PrivacyPolicyUrl" class="form-label">URL política de privacidad</label>
+                <input asp-for="Input.PrivacyPolicyUrl" type="url" class="form-control" placeholder="https://…" />
+            </div>
+        </div>
+        <div class="card-footer">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1" aria-hidden="true"></i> Guardar
+            </button>
+        </div>
+    </form>
+</div>

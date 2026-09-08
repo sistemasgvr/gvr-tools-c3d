@@ -1,0 +1,91 @@
+@page
+@model GvrLicense.Api.Pages.DownloadModel
+@{
+    ViewData["Title"] = "Descargar";
+    Layout = "_PublicLayout";
+    ViewData["SupportEmail"] = Model.SupportEmail;
+    ViewData["TosUrl"] = Model.TosUrl;
+    ViewData["PrivacyUrl"] = Model.PrivacyUrl;
+}
+
+<section class="public-hero">
+    <div class="container">
+        <img src="~/img/escudo-gvr.png" alt="GVR TOOLS-RVT" class="public-hero-logo mb-3" width="96" height="96" />
+        <p class="text-body-secondary text-uppercase small fw-semibold mb-2">Instalador</p>
+        <h1>Descargar GVR TOOLS-RVT</h1>
+        <p class="lead text-body-secondary">
+            Setup para Revit 2021–2027. Incluye el asistente de instalación y, si hace falta, PDF24 para Revit 2021.
+        </p>
+
+        @if (Model.HasInstaller)
+        {
+            <div class="d-flex flex-wrap gap-2 justify-content-center mt-4">
+                <a href="/download/file" class="btn btn-primary btn-lg">
+                    <i class="bi bi-download me-1" aria-hidden="true"></i>
+                    Descargar @(string.IsNullOrWhiteSpace(Model.LatestVersion) ? "ahora" : ("v" + Model.LatestVersion))
+                </a>
+                <a href="#pasos-instalacion" class="btn btn-outline-secondary btn-lg">Pasos de instalación</a>
+                <a href="/quote" class="btn btn-outline-primary btn-lg">
+                    <i class="bi bi-chat-square-text me-1" aria-hidden="true"></i>
+                    Cotiza un plan
+                </a>
+            </div>
+            <p class="text-body-secondary small mt-3 mb-0">
+                @if (Model.LatestPublishedAtUtc is not null)
+                {
+                    <span>Publicada el @Model.LatestPublishedAtUtc.Value.ToLima().ToString("dd/MM/yyyy").</span>
+                }
+                Un clic inicia el <code>.exe</code> (enlace temporal seguro).
+            </p>
+            @if (!string.IsNullOrWhiteSpace(Model.LatestNotes))
+            {
+                <div class="public-notes mx-auto mt-4 text-start">
+                    <h2 class="h6 text-body-secondary mb-2">Notas de la versión</h2>
+                    <p class="mb-0 text-body-secondary" style="white-space: pre-wrap">@Model.LatestNotes</p>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="alert alert-warning d-inline-block mt-4 mb-0" role="status">
+                Todavía no hay un instalador publicado. Vuelve pronto.
+            </div>
+            @* Sin correo de soporte a la vista (evita spam de bots en la landing pública) -- Cotiza dirige a /quote en vez de un mailto directo. *@
+            <p class="text-body-secondary small mt-3">
+                <a href="/quote">Cotiza aquí</a> y te avisamos apenas esté listo.
+            </p>
+        }
+    </div>
+</section>
+
+<section id="pasos-instalacion" class="container pb-5">
+    <div class="row g-4 justify-content-center">
+        <div class="col-md-4">
+            <div class="public-step">
+                <div class="public-step-number">1</div>
+                <div>
+                    <h5>Ejecuta el Setup</h5>
+                    <p class="text-body-secondary mb-0">Necesitas permisos de administrador en Windows.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="public-step">
+                <div class="public-step-number">2</div>
+                <div>
+                    <h5>Elige tus Revit</h5>
+                    <p class="text-body-secondary mb-0">El wizard detecta 2021–2027 y los premarca.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="public-step">
+                <div class="public-step-number">3</div>
+                <div>
+                    <h5>Activa la licencia</h5>
+                    <p class="text-body-secondary mb-0">En Revit: <strong>GVR Tools → Cuenta / Licencia</strong>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

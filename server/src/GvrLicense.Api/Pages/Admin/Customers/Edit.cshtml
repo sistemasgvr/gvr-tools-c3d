@@ -1,0 +1,49 @@
+@page
+@model GvrLicense.Api.Pages.Admin.Customers.EditModel
+@{
+    ViewData["Title"] = "Editar cliente";
+}
+
+@if (TempData["Saved"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Cliente actualizado.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+}
+
+<div class="card card-primary card-outline">
+    <div class="card-header">
+        <h3 class="card-title">Editar cliente <span class="text-body-secondary fw-normal">@Model.Input.CompanyName</span></h3>
+    </div>
+    <form method="post">
+        <div class="card-body" style="max-width: 36rem">
+            <div class="mb-3">
+                <label asp-for="Input.CompanyName" class="form-label">Empresa</label>
+                <input asp-for="Input.CompanyName" class="form-control" required />
+                <div class="form-text">Empresa que compra o usa GVR Tools.</div>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.ContactName" class="form-label">Persona de contacto</label>
+                <input asp-for="Input.ContactName" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.ContactEmail" class="form-label">Correo</label>
+                <input asp-for="Input.ContactEmail" type="email" class="form-control" required />
+                <div class="form-text">Aquí enviarás la clave de licencia.</div>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.PaymentNotes" class="form-label">Notas de pago</label>
+                <textarea asp-for="Input.PaymentNotes" class="form-control" rows="4" placeholder="Ej. Pagó por Yape el 12/03 — factura 001"></textarea>
+                <div class="form-text">Solo visible para ti: cómo y cuándo pagó.</div>
+            </div>
+        </div>
+        <div class="card-footer d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1" aria-hidden="true"></i> Guardar cambios
+            </button>
+            <a href="/Admin/Customers/Members?customerId=@Model.Id" class="btn btn-outline-secondary">Miembros</a>
+            <a href="/Admin/Customers/Index" class="btn btn-outline-secondary">Volver</a>
+        </div>
+    </form>
+</div>

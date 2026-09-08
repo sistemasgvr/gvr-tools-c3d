@@ -1,0 +1,137 @@
+/* Ajustes sobre AdminLTE 4 + Tabulator (bootstrap5).
+   Card header: patrón de dist/users.html (row + d-flex gap-2).
+   Paginación: símbolos cortos + footer que no desborda. */
+
+/* AdminLTE flota .card-title; dentro del row de users.html no debe flotar. */
+.card-header > .row .card-title {
+  float: none;
+}
+
+/* Filas colapsadas: más legibles en móvil */
+.tabulator .tabulator-responsive-collapse {
+  padding: 0.5rem 0.75rem;
+}
+
+.tabulator .tabulator-responsive-collapse td {
+  padding: 0.35rem 0;
+}
+
+.tabulator .tabulator-responsive-collapse strong,
+.tabulator .tabulator-responsive-collapse .tabulator-responsive-collapse-title {
+  display: inline-block;
+  min-width: 7rem;
+  color: var(--bs-secondary-color);
+  font-weight: 600;
+}
+
+/* --- Tabulator footer / paginación --- */
+.tabulator .tabulator-footer {
+  padding: 0.5rem 0.75rem;
+}
+
+.tabulator .tabulator-footer .tabulator-footer-contents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  width: 100%;
+}
+
+.tabulator .tabulator-footer .tabulator-paginator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem 0.35rem;
+  margin-left: auto;
+}
+
+.tabulator .tabulator-footer .tabulator-page {
+  min-width: 2rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.tabulator .tabulator-footer .tabulator-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+  .tabulator .tabulator-footer .tabulator-page-size {
+    display: none;
+  }
+
+  .tabulator .tabulator-footer .tabulator-footer-contents {
+    justify-content: center;
+  }
+
+  .tabulator .tabulator-footer .tabulator-paginator {
+    margin-left: 0;
+    justify-content: center;
+    flex: 1 1 auto;
+  }
+
+  .tabulator .tabulator-footer .tabulator-page-counter {
+    flex: 1 1 100%;
+    text-align: center;
+    order: 3;
+    font-size: 0.875rem;
+  }
+}
+
+/* Escudo GVR (mismo asset que el instalador / add-in) */
+.gvr-brand-logo {
+  opacity: 1;
+  border-radius: 0.35rem;
+  object-fit: cover;
+}
+
+.gvr-login-logo {
+  border-radius: 0.5rem;
+  object-fit: cover;
+  display: inline-block;
+}
+
+/* Dashboard list cards: scroll instead of hard cut-off */
+.admin-card-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Tom Select dropdown above Bootstrap modal (1055) / backdrop — mounted on body */
+.ts-dropdown {
+  z-index: 20000 !important;
+  box-sizing: border-box;
+}
+
+.ts-dropdown .dropdown-input {
+  border: 0;
+  border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+}
+
+.ts-wrapper.form-select {
+  padding: 0;
+  background-image: none;
+  min-height: calc(1.5em + 0.75rem + 2px);
+}
+
+.ts-wrapper.single .ts-control {
+  min-height: calc(1.5em + 0.75rem + 2px);
+  padding: 0.375rem 0.75rem;
+}
+
+.modal .ts-wrapper {
+  width: 100%;
+}
+
+/* Make clear button usable without fighting the caret */
+.ts-wrapper .clear-button {
+  margin-right: 0.25rem;
+}

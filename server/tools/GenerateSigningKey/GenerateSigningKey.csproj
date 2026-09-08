@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Se corre una sola vez (y de nuevo si toca rotar la clave, ver docs/LICENSING_PLAN.md, Fase 4
+       "rotar signing key"). Imprime la privada (para Signing__PrivateKeyPem en EasyPanel) y la
+       pública (para embeber en src/GvrTools.Licensing/Crypto). Nunca commitear la salida. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

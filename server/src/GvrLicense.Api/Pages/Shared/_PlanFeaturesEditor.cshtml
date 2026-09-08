@@ -1,0 +1,83 @@
+@model GvrLicense.Api.Pages.Admin.Plans.PlanFeatureForm
+
+@* Controles en español; los códigos técnicos se escriben al guardar (PlanFeatureForm.ToDictionary). *@
+
+<div class="mb-4">
+    <h6 class="text-body-secondary text-uppercase small fw-semibold mb-2">Herramientas</h6>
+    <div class="form-check form-switch mb-2">
+        <input asp-for="ToolBatchExport" class="form-check-input" role="switch" />
+        <label asp-for="ToolBatchExport" class="form-check-label">Exportación masiva de láminas</label>
+        <div class="form-text">Muestra el botón Batch Export en Revit.</div>
+    </div>
+</div>
+
+<div class="mb-4">
+    <h6 class="text-body-secondary text-uppercase small fw-semibold mb-2">Formatos permitidos</h6>
+    <div class="form-check form-switch mb-2">
+        <input asp-for="FormatPdf" class="form-check-input" role="switch" />
+        <label asp-for="FormatPdf" class="form-check-label">PDF</label>
+    </div>
+    <div class="form-check form-switch mb-2">
+        <input asp-for="FormatDwg" class="form-check-input" role="switch" />
+        <label asp-for="FormatDwg" class="form-check-label">DWG</label>
+    </div>
+    <div class="form-check form-switch mb-2">
+        <input asp-for="FormatPdfDwg" class="form-check-input" role="switch" />
+        <label asp-for="FormatPdfDwg" class="form-check-label">PDF + DWG en una pasada</label>
+    </div>
+</div>
+
+<div class="mb-4">
+    <h6 class="text-body-secondary text-uppercase small fw-semibold mb-3">Límites de uso</h6>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="SheetsPerMonth" class="form-label">Láminas por mes</label>
+            <input asp-for="SheetsPerMonth" type="number" min="0" class="form-control js-sheets-per-month" />
+            <div class="form-check mt-2">
+                <input asp-for="SheetsPerMonthUnlimited" class="form-check-input js-sheets-unlimited" />
+                <label asp-for="SheetsPerMonthUnlimited" class="form-check-label">Ilimitadas</label>
+            </div>
+            <div class="form-text">Se reinicia cada mes (UTC). Solo cuentan láminas exportadas con éxito.</div>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="SheetsPerBatch" class="form-label">Máx. láminas por lote</label>
+            <input asp-for="SheetsPerBatch" type="number" min="1" class="form-control" />
+            <div class="form-text">Tope al pulsar Exportar en una sola corrida.</div>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="MaxDevicesPerUser" class="form-label">PCs por usuario</label>
+            <input asp-for="MaxDevicesPerUser" type="number" min="1" class="form-control" />
+            <div class="form-text">Cuántas máquinas puede activar cada usuario de la licencia.</div>
+        </div>
+    </div>
+</div>
+
+<div class="mb-4">
+    <h6 class="text-body-secondary text-uppercase small fw-semibold mb-2">Actualizaciones</h6>
+    <div class="form-check form-switch mb-2">
+        <input asp-for="UpdatesStable" class="form-check-input" role="switch" />
+        <label asp-for="UpdatesStable" class="form-check-label">Puede recibir actualizaciones del add-in</label>
+    </div>
+</div>
+
+<details class="mb-2">
+    <summary class="text-body-secondary small" style="cursor: pointer">Opciones avanzadas (códigos técnicos)</summary>
+    <div class="mt-2">
+        <label asp-for="ExtraFeaturesText" class="form-label">Extras (una por línea, <code>codigo=valor</code>)</label>
+        <textarea asp-for="ExtraFeaturesText" class="form-control font-monospace" rows="4" placeholder="tool.mi_herramienta=true"></textarea>
+        <div class="form-text">Solo para features nuevas que aún no tienen interruptor arriba. Lo habitual no hace falta tocar esto.</div>
+    </div>
+</details>
+
+<script>
+  (() => {
+    const root = document.currentScript?.previousElementSibling?.parentElement
+      || document;
+    const unlimited = root.querySelector?.('.js-sheets-unlimited') || document.querySelector('.js-sheets-unlimited');
+    const input = root.querySelector?.('.js-sheets-per-month') || document.querySelector('.js-sheets-per-month');
+    if (!unlimited || !input) return;
+    const sync = () => { input.disabled = unlimited.checked; };
+    unlimited.addEventListener('change', sync);
+    sync();
+  })();
+</script>

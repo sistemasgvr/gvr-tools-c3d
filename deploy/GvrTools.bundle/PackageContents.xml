@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Multi-version Autodesk ApplicationPlugins bundle.
+
+  Layout:
+    GvrTools.bundle/
+      PackageContents.xml
+      Contents/
+        2021/ … (net48)
+        …
+        2025/ … (net8)
+        2027/ … (net10)
+
+  AutoCAD/Civil 3D loads only the <Components> block whose SeriesMin/SeriesMax matches the host.
+  End users do not need the .NET SDK — only this folder under ApplicationPlugins.
+-->
+<ApplicationPackage
+    SchemaVersion="1.0"
+    AppVersion="1.0.0"
+    Name="GVR Tools"
+    Description="Complemento GVR Tools para AutoCAD Civil 3D: exportación masiva de presentaciones y más."
+    Author="GVR"
+    ProductCode="{87C18A7A-DC0C-47AF-A20D-86D2BCD59A91}"
+    UpgradeCode="{2B7F0B9E-6C7B-4B34-9A2E-1C6C9C9A6F10}">
+
+  <CompanyDetails Name="GVR" Url="https://github.com/sistemasgvr" Email="" />
+
+  <Components Description="GVR Tools 2021">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.0" SeriesMax="R24.0" />
+    <ComponentEntry AppName="GvrTools.2021" Version="1.0.0"
+        ModuleName="./Contents/2021/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2021" Version="1.0.0"
+        ModuleName="./Contents/2021/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+  <Components Description="GVR Tools 2022">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.1" SeriesMax="R24.1" />
+    <ComponentEntry AppName="GvrTools.2022" Version="1.0.0"
+        ModuleName="./Contents/2022/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2022" Version="1.0.0"
+        ModuleName="./Contents/2022/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+  <Components Description="GVR Tools 2023">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.2" SeriesMax="R24.2" />
+    <ComponentEntry AppName="GvrTools.2023" Version="1.0.0"
+        ModuleName="./Contents/2023/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2023" Version="1.0.0"
+        ModuleName="./Contents/2023/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+  <Components Description="GVR Tools 2024">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.3" SeriesMax="R24.3" />
+    <ComponentEntry AppName="GvrTools.2024" Version="1.0.0"
+        ModuleName="./Contents/2024/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2024" Version="1.0.0"
+        ModuleName="./Contents/2024/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+  <Components Description="GVR Tools 2025">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" SeriesMax="R25.0" />
+    <ComponentEntry AppName="GvrTools.2025" Version="1.0.0"
+        ModuleName="./Contents/2025/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2025" Version="1.0.0"
+        ModuleName="./Contents/2025/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+  <Components Description="GVR Tools 2026">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.1" SeriesMax="R25.1" />
+    <ComponentEntry AppName="GvrTools.2026" Version="1.0.0"
+        ModuleName="./Contents/2026/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2026" Version="1.0.0"
+        ModuleName="./Contents/2026/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+  <Components Description="GVR Tools 2027">
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R26.0" SeriesMax="R26.0" />
+    <ComponentEntry AppName="GvrTools.2027" Version="1.0.0"
+        ModuleName="./Contents/2027/GvrTools.App.dll" AppDescription="GVR Tools host"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+    <ComponentEntry AppName="GvrTools.BatchExport.2027" Version="1.0.0"
+        ModuleName="./Contents/2027/GvrTools.Tools.BatchExport.dll" AppDescription="GVR Tools Batch Export"
+        AppType=".Net" LoadOnAutoCADStartup="true" LoadOnCommandInvocation="false" />
+  </Components>
+
+</ApplicationPackage>

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One tool = one assembly named GvrTools.Tools.*, which is how the host application finds it.
+    A new tool is a copy of this project file with a different name; nothing in GvrTools.App has to
+    be edited for its button to appear.
+  -->
+
+  <Import Project="..\GvrTools.Civil3D.props" />
+
+  <PropertyGroup>
+    <AssemblyName>GvrTools.Tools.BatchExport</AssemblyName>
+    <RootNamespace>GvrTools.Tools.BatchExport</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Description>Exportación masiva de presentaciones (layouts) a PDF.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GvrTools.Core\GvrTools.Core.csproj" />
+    <ProjectReference Include="..\GvrTools.Civil3D\GvrTools.Civil3D.csproj" />
+    <ProjectReference Include="..\GvrTools.UI\GvrTools.UI.csproj" />
+  </ItemGroup>
+
+</Project>

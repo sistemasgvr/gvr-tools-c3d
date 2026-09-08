@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GvrTools.Core/GvrTools.Core.csproj" />
+    <Project Path="src/GvrTools.UI/GvrTools.UI.csproj" />
+    <Project Path="src/GvrTools.Civil3D/GvrTools.Civil3D.csproj" />
+    <Project Path="src/GvrTools.Tools.BatchExport/GvrTools.Tools.BatchExport.csproj" />
+    <Project Path="src/GvrTools.Licensing/GvrTools.Licensing.csproj" />
+    <Project Path="src/GvrTools.App/GvrTools.App.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GvrTools.Core.Tests/GvrTools.Core.Tests.csproj" />
+  </Folder>
+</Solution>

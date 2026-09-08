@@ -1,0 +1,128 @@
+/* Landing pública (/) -- separado de admin-site.css a propósito: comparten Bootstrap/AdminLTE
+   pero esta hoja es solo para las páginas fuera de /Admin. */
+
+.public-header {
+  border-bottom: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+}
+
+.public-brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--bs-body-color);
+}
+
+.public-brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 0.375rem;
+  object-fit: cover;
+  flex: none;
+}
+
+.public-hero {
+  padding: 4rem 0 3rem;
+  text-align: center;
+}
+
+.public-hero-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  display: inline-block;
+}
+
+.public-hero h1 {
+  font-weight: 800;
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.public-hero p.lead {
+  max-width: 42rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.public-step {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.public-step-number {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--bs-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.public-notes {
+  max-width: 36rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  background: var(--bs-body-bg);
+  text-align: left;
+}
+
+.public-footer {
+  border-top: 1px solid var(--bs-border-color);
+  margin-top: 3rem;
+}
+
+/* Tarjetas de plan (/quote) */
+.public-plan-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-width: 2px;
+}
+
+.public-plan-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.08);
+}
+
+/* En modo oscuro una sombra negra se pierde contra el fondo ya oscuro -- se usa un resplandor
+   claro y sutil en su lugar, el convenio habitual para elevación en interfaces oscuras. */
+[data-bs-theme="dark"] .public-plan-card:hover {
+  box-shadow: 0 0.75rem 1.5rem rgba(255, 255, 255, 0.08);
+}
+
+.public-plan-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  background: rgba(var(--bs-primary-rgb), 0.12);
+  color: var(--bs-primary);
+  flex: none;
+}
+
+.public-feature-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  background: rgba(var(--bs-success-rgb), 0.12);
+  color: var(--bs-success);
+  flex: none;
+}
+
+/* Iconos dentro de un input-group: mismo ancho para que todas las etiquetas se alineen. */
+.public-form .input-group-text {
+  width: 2.75rem;
+  justify-content: center;
+  background: var(--bs-tertiary-bg);
+}

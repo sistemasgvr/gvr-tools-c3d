@@ -1,0 +1,411 @@
+@page
+@model GvrLicense.Api.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = "Inicio";
+}
+
+<div class="row">
+    <div class="col-lg-3 col-6">
+        <div class="small-box text-bg-success">
+            <div class="inner">
+                <h3>@Model.ActiveCount</h3>
+                <p>Licencias activas</p>
+            </div>
+            <i class="bi bi-check-circle small-box-icon"></i>
+            <a href="/Admin/Licenses/Index" class="small-box-footer link-light link-underline-opacity-0">
+                Ver licencias <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box text-bg-info">
+            <div class="inner">
+                <h3>@Model.SheetsThisMonth.ToString("N0")</h3>
+                <p>Láminas exportadas (mes UTC)</p>
+            </div>
+            <i class="bi bi-file-earmark-arrow-down small-box-icon"></i>
+            <a href="/Admin/Audit/Index" class="small-box-footer link-light link-underline-opacity-0">
+                Ver actividad <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box text-bg-primary">
+            <div class="inner">
+                <h3>@Model.DeviceCount</h3>
+                <p>PCs activados</p>
+            </div>
+            <i class="bi bi-pc-display small-box-icon"></i>
+            <a href="/Admin/Licenses/Index" class="small-box-footer link-light link-underline-opacity-0">
+                Ver dispositivos <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="small-box text-bg-secondary">
+            <div class="inner">
+                <h3>@Model.ActiveSeatCount</h3>
+                <p>Usuarios con seat</p>
+            </div>
+            <i class="bi bi-person-check small-box-icon"></i>
+            <a href="/Admin/Customers/Index" class="small-box-footer link-light link-underline-opacity-0">
+                Ver clientes <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-6 col-lg">
+        <div class="small-box text-bg-warning">
+            <div class="inner">
+                <h3>@Model.SuspendedCount</h3>
+                <p>Suspendidas</p>
+            </div>
+            <i class="bi bi-pause-circle small-box-icon"></i>
+            <a href="/Admin/Licenses/Index" class="small-box-footer link-dark link-underline-opacity-0">
+                Revisar <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="small-box text-bg-danger">
+            <div class="inner">
+                <h3>@Model.ExpiringSoonCount</h3>
+                <p>Vencen en 30 días</p>
+            </div>
+            <i class="bi bi-hourglass-split small-box-icon"></i>
+            <a href="#expiring-soon" class="small-box-footer link-light link-underline-opacity-0">
+                Renovar <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="small-box text-bg-primary">
+            <div class="inner">
+                <h3>@Model.CustomerCount</h3>
+                <p>Clientes</p>
+            </div>
+            <i class="bi bi-people small-box-icon"></i>
+            <a href="/Admin/Customers/Index" class="small-box-footer link-light link-underline-opacity-0">
+                Ver clientes <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="small-box text-bg-info">
+            <div class="inner">
+                <h3>@Model.PlanCount</h3>
+                <p>Planes activos</p>
+            </div>
+            <i class="bi bi-clipboard-check small-box-icon"></i>
+            <a href="/Admin/Plans/Index" class="small-box-footer link-light link-underline-opacity-0">
+                Ver planes <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+    <div class="col-6 col-lg">
+        <div class="small-box @(Model.NewQuoteCount > 0 ? "text-bg-warning" : "text-bg-secondary")">
+            <div class="inner">
+                <h3>@Model.NewQuoteCount</h3>
+                <p>Cotizaciones nuevas</p>
+            </div>
+            <i class="bi bi-chat-square-text small-box-icon"></i>
+            <a href="/Admin/Quotes/Index" class="small-box-footer @(Model.NewQuoteCount > 0 ? "link-dark" : "link-light") link-underline-opacity-0">
+                Ver cotizaciones <i class="bi bi-link-45deg"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+@if (Model.RecentRows.Count == 0 && Model.CustomerCount == 0)
+{
+    <div class="callout callout-info">
+        <h5 class="mb-2">Primeros pasos</h5>
+        <ol class="mb-0 ps-3">
+            <li><a href="/Admin/Customers/Index">Crea un cliente</a> (la empresa que te paga).</li>
+            <li><a href="/Admin/Licenses/Index">Emite una licencia</a> y copia la clave.</li>
+            <li>Envía la clave al cliente para activarla en Revit.</li>
+        </ol>
+    </div>
+}
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card card-outline h-100">
+            <div class="card-header">
+                <h3 class="card-title mb-0">Exportaciones este mes (UTC)</h3>
+            </div>
+            <div class="card-body">
+                <canvas id="daily-usage-chart" height="120" aria-label="Gráfico de láminas exportadas por día"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card card-outline h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0">Top licencias</h3>
+                <span class="badge text-bg-secondary">Este mes</span>
+            </div>
+            <div class="card-body p-0 admin-card-scroll">
+                @if (Model.TopUsageRows.Count == 0)
+                {
+                    <p class="text-secondary p-3 mb-0">Sin exportaciones registradas este mes.</p>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                    @foreach (var row in Model.TopUsageRows)
+                    {
+                        var limitLabel = row.QuotaLimit < 0 ? "∞" : row.QuotaLimit.ToString("N0");
+                        var pct = row.QuotaLimit > 0
+                            ? Math.Min(100, (int)Math.Round(100.0 * row.Consumed / row.QuotaLimit))
+                            : 0;
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="min-w-0">
+                                    <a href="/Admin/Licenses/Edit?id=@row.LicenseId" class="text-decoration-none fw-semibold">
+                                        <code class="small">@row.Key</code>
+                                    </a>
+                                    <div class="small text-body-secondary text-break">@row.CustomerName</div>
+                                </div>
+                                <span class="badge text-bg-primary flex-shrink-0">@row.Consumed.ToString("N0")</span>
+                            </div>
+                            @if (row.QuotaLimit > 0)
+                            {
+                                <div class="progress mt-2" style="height: 6px" role="progressbar"
+                                     aria-valuenow="@pct" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar" style="width: @pct%"></div>
+                                </div>
+                                <div class="small text-body-secondary mt-1">@row.Consumed.ToString("N0") / @limitLabel láminas</div>
+                            }
+                        </li>
+                    }
+                    </ul>
+                }
+            </div>
+            <div class="card-footer text-center">
+                <a href="/Admin/Licenses/Index">Ver más</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="card card-outline h-100">
+            <div class="card-header">
+                <h3 class="card-title mb-0">Tendencia (últimos 6 meses)</h3>
+            </div>
+            <div class="card-body">
+                <canvas id="monthly-usage-chart" height="100" aria-label="Gráfico de láminas exportadas por mes"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card card-outline h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0">Actividad reciente</h3>
+                <a href="/Admin/Audit/Index" class="btn btn-outline-secondary btn-sm">Ver todo</a>
+            </div>
+            <div class="card-body p-0 admin-card-scroll">
+                @if (Model.RecentAuditRows.Count == 0)
+                {
+                    <p class="text-secondary p-3 mb-0">Sin eventos de auditoría.</p>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                    @foreach (var ev in Model.RecentAuditRows)
+                    {
+                        <li class="list-group-item py-2">
+                            <div class="d-flex justify-content-between gap-2">
+                                <span class="text-break">@ev.ActionLabel</span>
+                                <span class="text-body-secondary small text-nowrap flex-shrink-0">@ev.OccurredAtUtc.ToLima().ToString("dd/MM HH:mm")</span>
+                            </div>
+                            <div class="small text-body-secondary text-break">@ev.Actor</div>
+                        </li>
+                    }
+                    </ul>
+                }
+            </div>
+            <div class="card-footer text-center">
+                <a href="/Admin/Audit/Index">Ver más</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6" id="expiring-soon">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h3 class="card-title mb-0">Próximas a vencer</h3>
+                @if (Model.ExpiringSoonCount > 0)
+                {
+                    <span class="badge text-bg-danger">@(Model.ExpiringSoonCount) en 30 días</span>
+                }
+            </div>
+            <div class="card-body p-0 table-responsive admin-card-scroll">
+                <table class="table table-striped table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Clave</th>
+                            <th>Cliente</th>
+                            <th>Vence</th>
+                            <th class="text-end">En</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @if (Model.UpcomingExpiryRows.Count == 0)
+                    {
+                        <tr><td colspan="4" class="text-center text-secondary p-3">No hay licencias activas.</td></tr>
+                    }
+                    @foreach (var row in Model.UpcomingExpiryRows)
+                    {
+                        var daysBadge = row.DaysUntil <= 30 ? "text-bg-warning" : "text-bg-secondary";
+                        <tr>
+                            <td><a href="/Admin/Licenses/Edit?id=@row.Id"><code>@row.Key</code></a></td>
+                            <td class="text-break">@row.CustomerName</td>
+                            <td class="text-nowrap">@row.ValidUntil.ToLima().ToString("dd/MM/yyyy")</td>
+                            <td class="text-end"><span class="badge @daysBadge">@(row.DaysUntil) d</span></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-center">
+                <a href="/Admin/Licenses/Index">Ver más</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h3 class="card-title mb-0">Licencias recientes</h3>
+                <a href="/Admin/Licenses/Index" class="btn btn-outline-secondary btn-sm">Ver todas <i class="bi bi-arrow-right"></i></a>
+            </div>
+            <div class="card-body p-0 table-responsive admin-card-scroll">
+                <table class="table table-striped table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Clave</th>
+                            <th>Cliente</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @if (Model.RecentRows.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="3" class="text-center text-secondary p-3">
+                                Aún no hay licencias.
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var row in Model.RecentRows)
+                    {
+                        var badgeClass = row.Status switch
+                        {
+                            GvrLicense.Domain.Entities.LicenseStatus.Active => "text-bg-success",
+                            GvrLicense.Domain.Entities.LicenseStatus.Suspended => "text-bg-warning",
+                            _ => "text-bg-danger"
+                        };
+                        var statusLabel = row.Status switch
+                        {
+                            GvrLicense.Domain.Entities.LicenseStatus.Active => "Activa",
+                            GvrLicense.Domain.Entities.LicenseStatus.Suspended => "Suspendida",
+                            _ => "Vencida"
+                        };
+                        <tr>
+                            <td><a href="/Admin/Licenses/Edit?id=@row.Id"><code>@row.Key</code></a></td>
+                            <td class="text-break">@row.CustomerName</td>
+                            <td><span class="badge @badgeClass">@statusLabel</span></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer text-center">
+                <a href="/Admin/Licenses/Index">Ver más</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+<script>
+(() => {
+  const dailyLabels = @Json.Serialize(Model.DailyChartLabels);
+  const dailyValues = @Json.Serialize(Model.DailyChartValues);
+  const monthlyLabels = @Json.Serialize(Model.MonthlyChartLabels);
+  const monthlyValues = @Json.Serialize(Model.MonthlyChartValues);
+
+  const themeColors = () => {
+    const styles = getComputedStyle(document.body);
+    const primary = styles.getPropertyValue('--bs-primary').trim() || '#0d6efd';
+    const secondary = styles.getPropertyValue('--bs-secondary-color').trim() || '#6c757d';
+    const border = styles.getPropertyValue('--bs-border-color').trim() || '#dee2e6';
+    return { primary, secondary, border };
+  };
+
+  const { primary, secondary, border } = themeColors();
+
+  const dailyCtx = document.getElementById('daily-usage-chart');
+  if (dailyCtx) {
+    new Chart(dailyCtx, {
+      type: 'bar',
+      data: {
+        labels: dailyLabels,
+        datasets: [{
+          label: 'Láminas exportadas',
+          data: dailyValues,
+          backgroundColor: primary + '99',
+          borderColor: primary,
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 12, color: secondary } },
+          y: { beginAtZero: true, ticks: { precision: 0, color: secondary }, grid: { color: border } }
+        }
+      }
+    });
+  }
+
+  const monthlyCtx = document.getElementById('monthly-usage-chart');
+  if (monthlyCtx) {
+    new Chart(monthlyCtx, {
+      type: 'line',
+      data: {
+        labels: monthlyLabels,
+        datasets: [{
+          label: 'Láminas exportadas',
+          data: monthlyValues,
+          fill: true,
+          tension: 0.3,
+          backgroundColor: primary + '22',
+          borderColor: primary,
+          pointBackgroundColor: primary
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: secondary } },
+          y: { beginAtZero: true, ticks: { precision: 0, color: secondary }, grid: { color: border } }
+        }
+      }
+    });
+  }
+})();
+</script>
+}

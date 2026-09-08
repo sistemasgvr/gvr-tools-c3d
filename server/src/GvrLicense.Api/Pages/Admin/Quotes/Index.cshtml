@@ -1,0 +1,117 @@
+@page
+@using System.Text.Json
+@model GvrLicense.Api.Pages.Admin.Quotes.IndexModel
+@{
+    ViewData["Title"] = "Cotizaciones";
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-6">
+                <h3 class="card-title">
+                    Cotizaciones
+                    @if (Model.NewCount > 0)
+                    {
+                        <span class="badge text-bg-primary ms-1">@Model.NewCount nueva(s)</span>
+                    }
+                </h3>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="d-flex flex-wrap justify-content-md-end gap-2">
+                    <div class="input-group input-group-sm w-auto flex-grow-1 flex-md-grow-0" style="max-width: 16rem">
+                        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                        <input id="quotes-filter" type="search" class="form-control" placeholder="Buscar…" aria-label="Buscar" style="min-width: 8rem" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <p class="text-body-secondary small">Solicitudes enviadas desde la landing pública (/quote). Seguimiento manual -- igual que el resto del sistema.</p>
+        @if (Model.Rows.Count == 0)
+        {
+            <p class="text-secondary mb-0">Todavía no hay cotizaciones.</p>
+        }
+        else
+        {
+            <div id="quotes-table"></div>
+        }
+    </div>
+</div>
+
+@if (Model.Rows.Count > 0)
+{
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const data = @Html.Raw(JsonSerializer.Serialize(Model.Rows, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+    const csrfToken = '@Model.AntiForgeryToken';
+
+    const statusBadge = (cell) => {
+      const value = cell.getValue();
+      const colors = { New: 'primary', Contacted: 'warning', Closed: 'secondary' };
+      const labels = { New: 'Nueva', Contacted: 'Contactado', Closed: 'Cerrada' };
+      return `<span class="badge text-bg-${colors[value] || 'secondary'}">${labels[value] || value}</span>`;
+    };
+
+    const statusForm = (id, status, label, btnClass) =>
+      `<form method="post" action="/Admin/Quotes/Index?handler=SetStatus&id=${id}&status=${status}" class="d-inline">
+         <input type="hidden" name="__RequestVerificationToken" value="${csrfToken}" />
+         <button type="submit" class="btn btn-sm ${btnClass}">${label}</button>
+       </form>`;
+
+    const actionButtons = (cell) => {
+      const row = cell.getData();
+      const buttons = [`<a href="/Admin/Quotes/Details/${row.id}" class="btn btn-sm btn-outline-secondary">Ver</a>`];
+      if (row.status !== 'Contacted') buttons.push(statusForm(row.id, 'Contacted', 'Marcar contactado', 'btn-outline-warning'));
+      if (row.status !== 'Closed') buttons.push(statusForm(row.id, 'Closed', 'Cerrar', 'btn-outline-secondary'));
+      if (row.status !== 'New') buttons.push(statusForm(row.id, 'New', 'Reabrir', 'btn-outline-primary'));
+      return `<div class="d-flex gap-1 justify-content-center flex-wrap">${buttons.join('')}</div>`;
+    };
+
+    const mailLink = (cell) => {
+      const value = cell.getValue();
+      return value ? `<a href="mailto:${value}">${value}</a>` : '';
+    };
+
+    const table = new Tabulator('#quotes-table', {
+      data: data,
+      locale: 'es',
+      langs: window.gvrTabulatorLocale,
+      layout: 'fitColumns',
+      responsiveLayout: 'collapse',
+      pagination: true,
+      paginationSize: 25,
+      paginationSizeSelector: [10, 25, 50, 100],
+      paginationCounter: 'rows',
+      initialSort: [{ column: 'createdAtUtc', dir: 'desc' }],
+      columns: [
+        { title: 'Más', formatter: 'responsiveCollapse', width: 40, minWidth: 40, hozAlign: 'center', headerSort: false, resizable: false, headerTooltip: 'Ver más columnas' },
+        { title: 'Fecha', field: 'createdAtUtc', width: 110, sorter: 'date', formatter: (cell) => window.gvrAdmin.formatDate(cell.getValue()), responsive: 0 },
+        { title: 'Nombre', field: 'fullName', minWidth: 140, responsive: 0 },
+        { title: 'Correo', field: 'email', minWidth: 180, formatter: mailLink, responsive: 1 },
+        { title: 'Estado', field: 'status', formatter: statusBadge, width: 110, hozAlign: 'center', responsive: 1 },
+        { title: 'Acciones', field: 'id', width: 340, hozAlign: 'center', headerSort: false, responsive: 1, formatter: actionButtons },
+        { title: 'Empresa', field: 'companyName', minWidth: 140, responsive: 2 },
+        { title: 'Teléfono', field: 'phone', minWidth: 120, responsive: 3 },
+        { title: 'Plan', field: 'planCode', width: 100, responsive: 4 },
+        { title: 'Mensaje', field: 'message', minWidth: 200, responsive: 5 },
+      ],
+    });
+
+    document.getElementById('quotes-filter').addEventListener('input', (e) => {
+      const value = e.target.value;
+      if (value) {
+        table.setFilter([[
+          { field: 'fullName', type: 'like', value },
+          { field: 'email', type: 'like', value },
+          { field: 'companyName', type: 'like', value },
+          { field: 'phone', type: 'like', value },
+        ]]);
+      } else {
+        table.clearFilter();
+      }
+    });
+  });
+</script>
+}
