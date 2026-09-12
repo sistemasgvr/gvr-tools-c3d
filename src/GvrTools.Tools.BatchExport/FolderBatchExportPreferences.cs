@@ -1,18 +1,17 @@
-using GvrTools.Civil3D.Export;
-
 namespace GvrTools.Tools.BatchExport
 {
-    /// <summary>
-    /// What the tool remembers between AutoCAD sessions. Deliberately flat scalars only — see
-    /// <c>FlatFileSettingsStore</c> for why.
-    /// </summary>
-    public sealed class BatchExportPreferences
+    /// <summary>What the multi-drawing exporter remembers between AutoCAD sessions.</summary>
+    public sealed class FolderBatchExportPreferences
     {
-        public const string StorageKey = "batch-export";
+        public const string StorageKey = "folder-batch-export";
+
+        public string SourceFolder { get; set; } = string.Empty;
+
+        public bool IncludeSubfolders { get; set; }
 
         public string OutputFolder { get; set; } = string.Empty;
 
-        public string NamingPattern { get; set; } = NamingTokens.DefaultPattern;
+        public string NamingPattern { get; set; } = "{DrawingTitle}-{LayoutName}";
 
         public bool OpenFolderWhenDone { get; set; } = true;
 
@@ -21,8 +20,6 @@ namespace GvrTools.Tools.BatchExport
         public string PdfPlotDeviceName { get; set; } = "DWG To PDF.pc3";
 
         public bool PdfFitToPaper { get; set; } = true;
-
-        public bool PdfCombineIntoSinglePdf { get; set; }
 
         /// <summary>Plot style table (.ctb/.stb) chosen last time, or empty to keep each layout's own.</summary>
         public string PdfPlotStyleTable { get; set; } = string.Empty;

@@ -9,6 +9,12 @@ namespace GvrTools.UI.Services
         /// <summary>Shows a folder picker. Returns null when the user cancels.</summary>
         string PickFolder(string description, string initialPath);
 
+        /// <summary>
+        /// Shows a file picker. <paramref name="filter"/> uses the Win32 form
+        /// ("Tablas de estilos (*.ctb;*.stb)|*.ctb;*.stb"). Returns null when the user cancels.
+        /// </summary>
+        string PickFile(string title, string filter, string initialPath);
+
         void ShowInfo(string title, string message);
 
         void ShowWarning(string title, string message);

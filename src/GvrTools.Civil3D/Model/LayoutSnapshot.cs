@@ -17,12 +17,13 @@ namespace GvrTools.Civil3D.Model
     /// </summary>
     public sealed class LayoutSnapshot
     {
-        public LayoutSnapshot(string objectIdHandle, string name, int tabOrder, string pageSetupName)
+        public LayoutSnapshot(string objectIdHandle, string name, int tabOrder, string pageSetupName, string plotStyleTable = null)
         {
             ObjectIdHandle = objectIdHandle ?? string.Empty;
             Name = name ?? string.Empty;
             TabOrder = tabOrder;
             PageSetupName = pageSetupName ?? string.Empty;
+            PlotStyleTable = plotStyleTable ?? string.Empty;
         }
 
         /// <summary>
@@ -40,6 +41,13 @@ namespace GvrTools.Civil3D.Model
 
         /// <summary>Named page setup assigned to the layout, if any.</summary>
         public string PageSetupName { get; }
+
+        /// <summary>
+        /// Plot style table (.ctb/.stb) the layout's page setup points at. May name a table that is
+        /// not installed on this machine — the Plot dialog renders that as "(missing)" — so it says
+        /// what the layout wants, not that it can be loaded.
+        /// </summary>
+        public string PlotStyleTable { get; }
 
         public string Label => Name;
 

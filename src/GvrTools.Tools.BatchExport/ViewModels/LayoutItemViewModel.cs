@@ -1,4 +1,5 @@
 using System;
+using GvrTools.Civil3D.Export;
 using GvrTools.Civil3D.Model;
 using GvrTools.UI.Mvvm;
 
@@ -17,6 +18,21 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         public string Name => Layout.Name;
 
         public string PageSetupName => Layout.PageSetupName;
+
+        /// <summary>
+        /// Plot style table of the layout, flagged the way AutoCAD's own Plot dialog does when the
+        /// table it names is not installed on this machine.
+        /// </summary>
+        public string PlotStyleTableLabel
+        {
+            get
+            {
+                string table = Layout.PlotStyleTable;
+                if (string.IsNullOrWhiteSpace(table)) return "(ninguna)";
+
+                return PlotStyleTableRepository.IsInstalled(table) ? table : table + " (falta)";
+            }
+        }
 
         private bool _isSelected = true;
         public bool IsSelected

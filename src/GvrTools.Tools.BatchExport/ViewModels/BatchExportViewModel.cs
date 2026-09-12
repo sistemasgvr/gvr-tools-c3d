@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using GvrTools.Civil3D.Export;
@@ -68,6 +69,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 _exportHistory[entry.Key] = entry.Value;
 
             LoadLayouts();
+            LoadPlotStyleTables();
 
             // Los comandos deben existir ANTES de aplicar las preferencias: al asignar OutputFolder
             // su setter llama a ExportCommand.RaiseCanExecuteChanged(), y si ApplyPreferences corre
@@ -76,6 +78,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             SelectNoneCommand = new RelayCommand(() => SetSelection(false));
             BrowseFolderCommand = new RelayCommand(BrowseFolder);
             OpenFolderCommand = new RelayCommand(() => _dialogs.Reveal(DestinationFolder));
+            ImportPlotStyleCommand = new RelayCommand(ImportPlotStyleTable);
             ExportCommand = new RelayCommand(StartExport, () => CanExport);
             CancelCommand = new RelayCommand(RequestCancel, () => IsExporting);
 
@@ -110,7 +113,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 if (_exportHistory.TryGetValue(snapshot.ObjectIdHandle, out DateTime lastExported))
                     item.LastExportedUtc = lastExported;
 
-                item.PropertyChanged += (s, e) => Raise(nameof(SelectionSummary), nameof(CanExport));
+                item.PropertyChanged += (s, e) =>
+                    Raise(nameof(SelectionSummary), nameof(CanExport), nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
                 Layouts.Add(item);
             }
         }
@@ -122,7 +126,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         private void SetSelection(bool selected)
         {
             foreach (LayoutItemViewModel item in Layouts) item.IsSelected = selected;
-            Raise(nameof(SelectionSummary), nameof(CanExport));
+            Raise(nameof(SelectionSummary), nameof(CanExport), nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
         }
 
         // ---------------------------------------------------------------- destination and naming
@@ -206,6 +210,63 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             set => Set(ref _fitToPaper, value);
         }
 
+        /// <summary>
+        /// Installed plot style tables, plus a first entry meaning "leave each layout's own table".
+        /// </summary>
+        public ObservableCollection<string> PlotStyleTables { get; } = new ObservableCollection<string>();
+
+        private string _selectedPlotStyleTable = PlotStyleTableRepository.KeepLayoutTableLabel;
+        public string SelectedPlotStyleTable
+        {
+            get => _selectedPlotStyleTable;
+            set => Set(ref _selectedPlotStyleTable, value ?? PlotStyleTableRepository.KeepLayoutTableLabel);
+        }
+
+        /// <summary>Tables the selected layouts ask for that are not installed on this machine.</summary>
+        private List<string> GetMissingPlotStyleTables()
+        {
+            var missing = new List<string>();
+
+            foreach (LayoutItemViewModel item in Layouts)
+            {
+                if (!item.IsSelected) continue;
+
+                string table = item.Layout.PlotStyleTable;
+                if (string.IsNullOrWhiteSpace(table)) continue;
+                if (PlotStyleTableRepository.IsInstalled(table)) continue;
+                if (!missing.Contains(table)) missing.Add(table);
+            }
+
+            return missing;
+        }
+
+        /// <summary>Empty unless some selected layout wants a table that is not installed here.</summary>
+        public string MissingPlotStyleWarning
+        {
+            get
+            {
+                List<string> missing = GetMissingPlotStyleTables();
+                if (missing.Count == 0) return string.Empty;
+
+                return $"Falta la tabla de estilos {string.Join(", ", missing)}. " +
+                       "Usa \"Examinar...\" para instalarla desde el proyecto, o elige otra de la lista.";
+            }
+        }
+
+        public bool HasMissingPlotStyle => !string.IsNullOrEmpty(MissingPlotStyleWarning);
+
+        private void LoadPlotStyleTables()
+        {
+            // Al abrir la ventana se relee, por si se instalaron tablas desde la última vez.
+            PlotStyleTableRepository.Refresh();
+
+            PlotStyleTables.Clear();
+            PlotStyleTables.Add(PlotStyleTableRepository.KeepLayoutTableLabel);
+
+            foreach (string table in PlotStyleTableRepository.GetAvailableTables())
+                PlotStyleTables.Add(table);
+        }
+
         private bool _combineIntoSinglePdf;
         public bool CombineIntoSinglePdf
         {
@@ -282,6 +343,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public RelayCommand OpenFolderCommand { get; }
 
+        public RelayCommand ImportPlotStyleCommand { get; }
+
         public RelayCommand ExportCommand { get; }
 
         public RelayCommand CancelCommand { get; }
@@ -307,7 +370,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 UseLayoutPageSetup = UseLayoutPageSetup,
                 PlotDeviceName = PlotDeviceName,
                 FitToPaper = FitToPaper,
-                CombineIntoSinglePdf = CombineIntoSinglePdf
+                CombineIntoSinglePdf = CombineIntoSinglePdf,
+                PlotStyleTableOverride = ResolvePlotStyleOverride()
             };
 
             var request = new ExportRequest(_document.Database, _runDestinationFolder, NamingPattern, settings, _drawing, _log, _document);
@@ -348,6 +412,110 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             }
         }
 
+        /// <summary>
+        /// Lets the user point at a .ctb/.stb that ships with the project instead of one already
+        /// installed. The plot engine resolves style tables by NAME out of AutoCAD's own folders, so
+        /// the file is copied there first and then selected.
+        /// </summary>
+        private void ImportPlotStyleTable()
+        {
+            string initial = _drawing.LocalFolder;
+
+            string picked = _dialogs.PickFile(
+                "Selecciona la tabla de estilos del proyecto",
+                "Tablas de estilos (*.ctb;*.stb)|*.ctb;*.stb|Todos los archivos (*.*)|*.*",
+                initial);
+
+            if (picked == null) return;
+
+            try
+            {
+                string installAs = ResolveInstallName(picked);
+
+                string installed;
+                try
+                {
+                    installed = PlotStyleTableRepository.Import(picked, overwriteExisting: false, installAs: installAs);
+                }
+                catch (PlotStyleAlreadyExistsException exists)
+                {
+                    bool replace = _dialogs.Confirm(DialogTitle,
+                        $"{exists.Message}{Environment.NewLine}{Environment.NewLine}" +
+                        "¿Reemplazarla con la del proyecto?");
+
+                    if (!replace)
+                    {
+                        // Se conserva la ya instalada: basta con seleccionarla.
+                        SelectInstalledTable(exists.TableName);
+                        return;
+                    }
+
+                    installed = PlotStyleTableRepository.Import(picked, overwriteExisting: true, installAs: installAs);
+                }
+
+                LoadPlotStyleTables();
+                SelectInstalledTable(installed);
+                Raise(nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
+
+                _log.Info($"Tabla de estilos '{installed}' importada desde '{picked}'.");
+                _dialogs.ShowInfo(DialogTitle,
+                    $"Se instaló la tabla de estilos \"{installed}\" y quedó seleccionada para esta exportación.");
+            }
+            catch (PlotStyleImportException ex)
+            {
+                _log.Error("No se pudo importar la tabla de estilos.", ex);
+                _dialogs.ShowError(DialogTitle, ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Name the picked file should be installed under.
+        ///
+        /// The plot engine matches style tables by name, so a project that ships "Lombardi 3.ctb"
+        /// does NOT satisfy layouts asking for "Lombardi.ctb" — same pens, wrong name, still
+        /// missing. When the file name differs from the table the layouts want, this offers to
+        /// install it under the expected name. Returns null to keep the file's own name.
+        /// </summary>
+        private string ResolveInstallName(string pickedFile)
+        {
+            List<string> missing = GetMissingPlotStyleTables();
+            if (missing.Count != 1) return null;
+
+            string wanted = missing[0];
+            string pickedName = System.IO.Path.GetFileName(pickedFile);
+
+            if (string.Equals(pickedName, wanted, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            bool rename = _dialogs.Confirm(DialogTitle,
+                $"Las presentaciones piden \"{wanted}\", pero seleccionaste \"{pickedName}\"." +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                $"¿Instalarla como \"{wanted}\" para que las presentaciones la encuentren?" +
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                $"Si eliges Cancelar se instalará como \"{pickedName}\" y tendrás que seleccionarla a mano.");
+
+            return rename ? wanted : null;
+        }
+
+        private void SelectInstalledTable(string tableName)
+        {
+            foreach (string table in PlotStyleTables)
+            {
+                if (string.Equals(table, tableName, StringComparison.OrdinalIgnoreCase))
+                {
+                    SelectedPlotStyleTable = table;
+                    Raise(nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
+                    return;
+                }
+            }
+        }
+
+        /// <summary>The chosen table, or empty when the user kept each layout's own.</summary>
+        private string ResolvePlotStyleOverride() =>
+            string.Equals(SelectedPlotStyleTable, PlotStyleTableRepository.KeepLayoutTableLabel, StringComparison.Ordinal)
+                ? string.Empty
+                : SelectedPlotStyleTable;
+
         private void RequestCancel() => _scheduler.RequestCancel();
 
         private void OnFinished(BatchResult result)
@@ -381,10 +549,61 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
             _historyStore.Save(_drawing.DrawingKey, _exportHistory);
 
+            string destination = result.DestinationFolder;
+
             if (OpenFolderWhenDone && result.SucceededCount > 0)
-                _dialogs.Reveal(result.DestinationFolder);
+                _dialogs.Reveal(destination);
+
+            ShowCompletionDialog(result, destination);
 
             _runDestinationFolder = null;
+        }
+
+        /// <summary>
+        /// Tells the user the run is over. The window stays open behind it (results grid, folder
+        /// button), so this only has to answer "did it finish, and did anything fail".
+        /// </summary>
+        private void ShowCompletionDialog(BatchResult result, string destinationFolder)
+        {
+            if (result.WasCancelled)
+            {
+                _dialogs.ShowWarning(DialogTitle,
+                    $"Exportación cancelada.{Environment.NewLine}{Environment.NewLine}" +
+                    $"Se alcanzaron a exportar {result.SucceededCount} presentación(es).");
+                return;
+            }
+
+            var message = new StringBuilder();
+            message.AppendLine($"Se exportaron {result.SucceededCount} presentación(es) a PDF.");
+            message.AppendLine();
+            message.AppendLine("Carpeta:");
+            message.Append(destinationFolder);
+
+            if (result.FailedCount == 0)
+            {
+                _dialogs.ShowInfo(DialogTitle, message.ToString());
+                return;
+            }
+
+            message.AppendLine();
+            message.AppendLine();
+            message.AppendLine($"{result.FailedCount} con error:");
+
+            const int MaxListed = 5;
+            int listed = 0;
+            foreach (BatchItemResult failure in result.Failures)
+            {
+                if (listed == MaxListed)
+                {
+                    message.Append($"  ... y {result.FailedCount - MaxListed} más (ver la lista de resultados).");
+                    break;
+                }
+
+                message.AppendLine($"  • {failure.Label}: {failure.Message}");
+                listed++;
+            }
+
+            _dialogs.ShowWarning(DialogTitle, message.ToString());
         }
 
         private void ApplyPreferences(BatchExportPreferences preferences)
@@ -396,6 +615,11 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             PlotDeviceName = preferences.PdfPlotDeviceName;
             FitToPaper = preferences.PdfFitToPaper;
             CombineIntoSinglePdf = preferences.PdfCombineIntoSinglePdf;
+
+            // Solo se restaura si la tabla sigue instalada; si no, vuelve a "usar la del layout".
+            SelectedPlotStyleTable = PlotStyleTables.Contains(preferences.PdfPlotStyleTable)
+                ? preferences.PdfPlotStyleTable
+                : PlotStyleTableRepository.KeepLayoutTableLabel;
         }
 
         private void SavePreferences()
@@ -408,7 +632,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 PdfUseLayoutPageSetup = UseLayoutPageSetup,
                 PdfPlotDeviceName = PlotDeviceName,
                 PdfFitToPaper = FitToPaper,
-                PdfCombineIntoSinglePdf = CombineIntoSinglePdf
+                PdfCombineIntoSinglePdf = CombineIntoSinglePdf,
+                PdfPlotStyleTable = ResolvePlotStyleOverride()
             });
         }
 

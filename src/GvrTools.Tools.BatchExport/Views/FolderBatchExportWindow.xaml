@@ -1,7 +1,7 @@
-<Window x:Class="GvrTools.Tools.BatchExport.Views.BatchExportWindow"
+<Window x:Class="GvrTools.Tools.BatchExport.Views.FolderBatchExportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="GVR Tools - Exportación masiva" Height="760" Width="720"
+        Title="GVR Tools - Exportación masiva de dibujos" Height="760" Width="720"
         MinHeight="640" MinWidth="680"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
@@ -19,66 +19,43 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="Exportar presentaciones a PDF" Style="{StaticResource Gvr.Text.Title}"/>
-            <TextBlock Text="{Binding DocumentTitle, StringFormat=' · {0}'}" Style="{StaticResource Gvr.Text.Subtle}" VerticalAlignment="Bottom" Margin="6,0,0,2"/>
+            <TextBlock Text="Exportar varios dibujos (.dwg) a PDF" Style="{StaticResource Gvr.Text.Title}"/>
         </StackPanel>
 
-        <!-- Destino y nomenclatura -->
+        <!-- Origen, destino y nomenclatura -->
         <Border Grid.Row="1" Background="{StaticResource Gvr.Brush.Surface}" Padding="{StaticResource Gvr.Padding.Card}" Margin="0,0,0,10" IsEnabled="{Binding CanEditOptions}">
             <StackPanel>
+                <TextBlock Text="Carpeta con los dibujos a exportar" Style="{StaticResource Gvr.Text.SectionHeader}"/>
+                <DockPanel Margin="0,0,0,4">
+                    <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding SourceFolderCommand}" Margin="8,0,0,0"/>
+                    <TextBox Text="{Binding SourceFolder, UpdateSourceTrigger=PropertyChanged}"/>
+                </DockPanel>
+                <CheckBox Content="Incluir subcarpetas" IsChecked="{Binding IncludeSubfolders}" Margin="0,0,0,4"/>
+                <TextBlock Text="{Binding SourceSummary}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,10"/>
+
                 <TextBlock Text="Carpeta de destino" Style="{StaticResource Gvr.Text.SectionHeader}"/>
-                <DockPanel Margin="0,0,0,8">
-                    <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding BrowseFolderCommand}" Margin="8,0,0,0"/>
+                <DockPanel Margin="0,0,0,10">
+                    <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding BrowseDestinationCommand}" Margin="8,0,0,0"/>
                     <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"/>
                 </DockPanel>
-                <TextBlock Text="{Binding DestinationFolder, StringFormat='Se creará: {0}'}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,10"/>
 
                 <TextBlock Text="Nomenclatura de archivos" Style="{StaticResource Gvr.Text.SectionHeader}"/>
                 <TextBox Text="{Binding NamingPattern, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
                 <TextBlock Text="{Binding NamingHelpText}" Style="{StaticResource Gvr.Text.Subtle}" FontSize="11"/>
-                <TextBlock Text="{Binding NamingPreview, StringFormat='Ejemplo: {0}'}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>
 
-        <!-- Grilla de presentaciones -->
-        <Border Grid.Row="2" BorderBrush="{StaticResource Gvr.Brush.Line}" BorderThickness="1" Margin="0,0,0,10" MinHeight="200">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <DockPanel Grid.Row="0" Margin="8" LastChildFill="False">
-                    <TextBlock Text="{Binding SelectionSummary}" Style="{StaticResource Gvr.Text.Subtle}" VerticalAlignment="Center"/>
-                    <Button DockPanel.Dock="Right" Content="Ninguna" Command="{Binding SelectNoneCommand}" Margin="6,0,0,0"/>
-                    <Button DockPanel.Dock="Right" Content="Todas" Command="{Binding SelectAllCommand}"/>
-                </DockPanel>
-
-                <ListView Grid.Row="1" ItemsSource="{Binding Layouts}" IsEnabled="{Binding CanEditOptions}">
-                    <ListView.View>
-                        <GridView>
-                            <GridViewColumn Width="32">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="Presentación" Width="320" DisplayMemberBinding="{Binding Name}"/>
-                            <GridViewColumn Header="Configuración de página" Width="150" DisplayMemberBinding="{Binding PageSetupName}"/>
-                            <GridViewColumn Header="Tabla de estilos" Width="160" DisplayMemberBinding="{Binding PlotStyleTableLabel}"/>
-                            <GridViewColumn Header="Última exportación" Width="130" DisplayMemberBinding="{Binding LastExportedLabel}"/>
-                        </GridView>
-                    </ListView.View>
-                </ListView>
-            </Grid>
+        <!-- Lista de archivos detectados -->
+        <Border Grid.Row="2" BorderBrush="{StaticResource Gvr.Brush.Line}" BorderThickness="1" Margin="0,0,0,10" MinHeight="140">
+            <ListView ItemsSource="{Binding SourceFiles}" IsEnabled="{Binding CanEditOptions}"/>
         </Border>
 
         <!-- Opciones PDF -->
         <Border Grid.Row="3" Background="{StaticResource Gvr.Brush.Surface}" Padding="{StaticResource Gvr.Padding.Card}" Margin="0,0,0,10" IsEnabled="{Binding CanEditOptions}">
             <StackPanel>
                 <TextBlock Text="Opciones de PDF" Style="{StaticResource Gvr.Text.SectionHeader}"/>
-                <TextBlock Text="{Binding StrategyDescription}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,8"/>
+                <TextBlock Text="Cada dibujo se abre brevemente en esta sesión de Civil 3D mientras se exporta (no hay forma de hacerlo sin abrirlo) y se cierra sin guardar cambios; al terminar vuelve tu dibujo activo original."
+                           Style="{StaticResource Gvr.Text.Subtle}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                 <CheckBox Content="Usar la configuración de página de cada presentación" IsChecked="{Binding UseLayoutPageSetup}" Margin="0,0,0,6"/>
                 <DockPanel Visibility="{Binding ShowPlotDevice, Converter={StaticResource Gvr.BoolToVisibility}}" Margin="0,0,0,6">
                     <TextBlock Text="Dispositivo de trazado:" Style="{StaticResource Gvr.Text.Label}"/>
@@ -92,10 +69,6 @@
                             ToolTip="Selecciona un .ctb/.stb del proyecto; se instalará en AutoCAD y quedará seleccionado."/>
                     <ComboBox ItemsSource="{Binding PlotStyleTables}" SelectedItem="{Binding SelectedPlotStyleTable}"/>
                 </DockPanel>
-                <TextBlock Text="{Binding MissingPlotStyleWarning}" TextWrapping="Wrap" Margin="0,0,0,6"
-                           Foreground="{StaticResource Gvr.Brush.Danger}"
-                           Visibility="{Binding HasMissingPlotStyle, Converter={StaticResource Gvr.BoolToVisibility}}"/>
-                <CheckBox Content="Combinar todo en un solo PDF" IsChecked="{Binding CombineIntoSinglePdf}" Margin="0,0,0,6"/>
                 <CheckBox Content="Abrir la carpeta al terminar" IsChecked="{Binding OpenFolderWhenDone}"/>
             </StackPanel>
         </Border>
@@ -103,14 +76,14 @@
         <!-- Progreso / resultados -->
         <StackPanel Grid.Row="4" Margin="0,0,0,10">
             <ProgressBar Height="8" Minimum="0" Maximum="{Binding ProgressMaximum}" Value="{Binding ProgressValue}" Margin="0,0,0,6"/>
-            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Gvr.Text.Subtle}"/>
+            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Gvr.Text.Subtle}" TextWrapping="Wrap"/>
             <ListView ItemsSource="{Binding Results}" MaxHeight="140"
                       Visibility="{Binding ShowResults, Converter={StaticResource Gvr.BoolToVisibility}}"
                       Margin="0,6,0,0">
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header=" " Width="24" DisplayMemberBinding="{Binding StatusIcon}"/>
-                        <GridViewColumn Header="Presentación" Width="240" DisplayMemberBinding="{Binding Label}"/>
+                        <GridViewColumn Header="Dibujo" Width="240" DisplayMemberBinding="{Binding Label}"/>
                         <GridViewColumn Header="Detalle" Width="360" DisplayMemberBinding="{Binding Detail}"/>
                     </GridView>
                 </ListView.View>

@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Windows.Media.Imaging;
+using System.Windows.Media;
 using Autodesk.AutoCAD.ApplicationServices.Core;
 using Autodesk.Windows;
 using GvrTools.Civil3D.Ribbon;
 using GvrTools.Core.Diagnostics;
+using GvrTools.UI.Icons;
 
 namespace GvrTools.App.Ribbon
 {
@@ -56,11 +57,18 @@ namespace GvrTools.App.Ribbon
                     ToolTip = BuildTooltip(tool)
                 };
 
-                BitmapSource icon = SafeIcon(tool);
+                // La cinta pide el ícono en dos tamaños: 32px para botones grandes y 16px para los
+                // pequeños/compactos. Se rasteriza a cada uno en vez de escalar una sola imagen.
+                ImageSource icon = SafeIcon(tool);
                 if (icon != null)
                 {
-                    button.LargeImage = icon;
-                    button.Image = icon;
+                    button.LargeImage = VectorIcon.Rasterize(icon, 32);
+                    button.Image = VectorIcon.Rasterize(icon, 16);
+                }
+                else
+                {
+                    // Sin ícono el botón saldría solo con texto y desalineado del resto de la cinta.
+                    _log.Warn($"La herramienta '{tool.Id}' no entregó un ícono; su botón quedará sin imagen.");
                 }
 
                 panel.Source.Items.Add(button);
@@ -120,11 +128,13 @@ namespace GvrTools.App.Ribbon
             return tool.Tooltip + Environment.NewLine + Environment.NewLine + tool.LongDescription;
         }
 
-        private BitmapSource SafeIcon(ICivilTool tool)
+        private ImageSource SafeIcon(ICivilTool tool)
         {
             try
             {
-                return tool.CreateIcon() as BitmapSource;
+                // Sin cast a BitmapSource: los íconos se componen como DrawingImage, que NO deriva de
+                // BitmapSource, así que un "as" devolvía null en silencio y ningún botón tenía imagen.
+                return tool.CreateIcon();
             }
             catch (Exception ex)
             {

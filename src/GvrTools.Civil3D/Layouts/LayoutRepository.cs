@@ -34,7 +34,8 @@ namespace GvrTools.Civil3D.Layouts
                         layout.ObjectId.Handle.ToString(),
                         layout.LayoutName,
                         layout.TabOrder,
-                        SafePageSetupName(layout)));
+                        SafePageSetupName(layout),
+                        SafePlotStyleTable(layout)));
                 }
 
                 tr.Commit();
@@ -65,11 +66,28 @@ namespace GvrTools.Civil3D.Layouts
             }
         }
 
-        private static string SafePageSetupName(Layout layout)
+        /// <summary>Plot style table (.ctb/.stb) the layout's page setup references, if any.</summary>
+        private static string SafePlotStyleTable(Layout layout)
         {
             try
             {
                 return layout.CurrentStyleSheet;
+            }
+            catch (System.Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string SafePageSetupName(Layout layout)
+        {
+            try
+            {
+                // PlotSettingsName is the name of the *named* page setup the layout points at (set via
+                // Page Setup Manager); empty when the layout only has its own inline, unnamed settings.
+                return string.IsNullOrEmpty(layout.PlotSettingsName)
+                    ? layout.PlotConfigurationName
+                    : layout.PlotSettingsName;
             }
             catch (System.Exception)
             {

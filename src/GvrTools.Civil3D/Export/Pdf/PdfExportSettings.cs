@@ -37,9 +37,6 @@ namespace GvrTools.Civil3D.Export.Pdf
         /// </summary>
         public bool CombineIntoSinglePdf { get; set; }
 
-        /// <summary>Plots what is inside the layout's own plot area (defined on the page setup) rather than a manual window.</summary>
-        public bool PlotWithLineweights { get; set; } = true;
-
         /// <summary>Named plot style table (.ctb/.stb) override, or empty to keep the layout's own.</summary>
         public string PlotStyleTableOverride { get; set; } = string.Empty;
     }

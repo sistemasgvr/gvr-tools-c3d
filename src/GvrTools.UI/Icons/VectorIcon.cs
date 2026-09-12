@@ -31,6 +31,32 @@ namespace GvrTools.UI.Icons
             return image;
         }
 
+        /// <summary>
+        /// Rasterises an icon at <paramref name="pixelSize"/>.
+        ///
+        /// AutoCAD's ribbon (<c>Autodesk.Windows.RibbonButton</c>) only shows images it can treat as
+        /// a <see cref="System.Windows.Media.Imaging.BitmapSource"/>; a <see cref="DrawingImage"/>
+        /// assigned to <c>LargeImage</c> is dropped silently, leaving a text-only button. So the
+        /// vector definition stays the source of truth and this renders it once per required size.
+        /// </summary>
+        public static System.Windows.Media.Imaging.BitmapSource Rasterize(ImageSource source, int pixelSize)
+        {
+            if (source == null) return null;
+
+            var visual = new DrawingVisual();
+            using (DrawingContext context = visual.RenderOpen())
+                context.DrawImage(source, new Rect(0, 0, pixelSize, pixelSize));
+
+            // 96 dpi keeps one drawing unit equal to one pixel, so the 32-unit canvas the icons are
+            // authored in maps exactly onto the requested pixel box.
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                pixelSize, pixelSize, 96, 96, PixelFormats.Pbgra32);
+
+            bitmap.Render(visual);
+            bitmap.Freeze();
+            return bitmap;
+        }
+
         public static GeometryDrawing Rectangle(Rect bounds, Color fill, double cornerRadius = 0) =>
             Freeze(new GeometryDrawing(Brush(fill), null, new RectangleGeometry(bounds, cornerRadius, cornerRadius)));
 

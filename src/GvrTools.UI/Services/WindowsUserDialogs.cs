@@ -31,6 +31,34 @@ namespace GvrTools.UI.Services
             }
         }
 
+        public string PickFile(string title, string filter, string initialPath)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = title,
+                Filter = filter,
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(initialPath))
+                {
+                    string folder = Directory.Exists(initialPath) ? initialPath : Path.GetDirectoryName(initialPath);
+                    if (!string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder))
+                        dialog.InitialDirectory = folder;
+                }
+            }
+            catch (Exception)
+            {
+                // Una ruta inicial inválida no debe impedir abrir el selector.
+            }
+
+            bool? result = _owner == null ? dialog.ShowDialog() : dialog.ShowDialog(_owner);
+            return result == true ? dialog.FileName : null;
+        }
+
         public void ShowInfo(string title, string message) =>
             Show(title, message, MessageBoxImage.Information);
 
