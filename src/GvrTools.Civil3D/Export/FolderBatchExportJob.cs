@@ -121,7 +121,8 @@ namespace GvrTools.Civil3D.Export
             // archivo en una sesión), pero además cerrarlo al terminar descartaría ese trabajo.
             Document alreadyOpen = FindOpenDocument(path);
             if (alreadyOpen != null)
-                return BatchItemResult.Skipped(label, "Este dibujo ya está abierto; ciérralo o guárdalo antes de incluirlo en el lote.");
+                return BatchItemResult.Skipped(label,
+                    "El dibujo debe estar cerrado. Ciérralo en Civil 3D (guarda si hace falta) e inténtalo de nuevo.");
 
             Document document = null;
             try

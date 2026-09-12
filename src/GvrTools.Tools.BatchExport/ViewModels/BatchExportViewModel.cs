@@ -70,6 +70,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
             LoadLayouts();
             LoadPlotStyleTables();
+            LoadPlotDevices();
 
             // Los comandos deben existir ANTES de aplicar las preferencias: al asignar OutputFolder
             // su setter llama a ExportCommand.RaiseCanExecuteChanged(), y si ApplyPreferences corre
@@ -183,31 +184,37 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         // ---------------------------------------------------------------- PDF options
 
-        private bool _useLayoutPageSetup = true;
-        public bool UseLayoutPageSetup
-        {
-            get => _useLayoutPageSetup;
-            set
-            {
-                if (Set(ref _useLayoutPageSetup, value))
-                    Raise(nameof(ShowPlotDevice));
-            }
-        }
+        /// <summary>Installed PDF .pc3 devices (e.g. DWG To PDF.pc3 and custom HQ copies).</summary>
+        public ObservableCollection<string> PlotDevices { get; } = new ObservableCollection<string>();
 
-        public bool ShowPlotDevice => !UseLayoutPageSetup;
-
-        private string _plotDeviceName = "DWG To PDF.pc3";
+        private string _plotDeviceName = PlotDeviceRepository.DefaultPdfDeviceName;
         public string PlotDeviceName
         {
             get => _plotDeviceName;
-            set => Set(ref _plotDeviceName, value ?? string.Empty);
+            set
+            {
+                if (Set(ref _plotDeviceName, value ?? string.Empty))
+                {
+                    Raise(nameof(CanExport), nameof(MissingPlotDeviceWarning), nameof(HasMissingPlotDevice));
+                    ExportCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
-        private bool _fitToPaper = true;
-        public bool FitToPaper
+        public string PlotDeviceHelpText =>
+            "Elige el .pc3 instalado (Imprimir → Administrar estilos de trazado / Plotters). " +
+            "Para CIP y sellos legibles crea una copia HQ de \"DWG To PDF.pc3\" (Propiedades personalizadas, DPI alto) y selecciónala aquí. " +
+            "Se aplica a todas las presentaciones del lote.";
+
+        public string PlotPresetHelpText =>
+            "Preset GVR en cada hoja: Extents, escala 1:1, centrado, sin ajustar a la página. " +
+            "El tamaño de papel lo define cada presentación. Extents exige que no haya dibujo en el espacio gris fuera del papel.";
+
+        private bool _plotTransparency = true;
+        public bool PlotTransparency
         {
-            get => _fitToPaper;
-            set => Set(ref _fitToPaper, value);
+            get => _plotTransparency;
+            set => Set(ref _plotTransparency, value);
         }
 
         /// <summary>
@@ -221,6 +228,10 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             get => _selectedPlotStyleTable;
             set => Set(ref _selectedPlotStyleTable, value ?? PlotStyleTableRepository.KeepLayoutTableLabel);
         }
+
+        public string PlotStyleHelpText =>
+            "La tabla CTB/STB controla colores y grosores al imprimir (a diferencia de Revit). " +
+            "Sin la tabla correcta el PDF sale con colores crudos y sellos/CIP pueden quedar ilegibles.";
 
         /// <summary>Tables the selected layouts ask for that are not installed on this machine.</summary>
         private List<string> GetMissingPlotStyleTables()
@@ -255,9 +266,19 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public bool HasMissingPlotStyle => !string.IsNullOrEmpty(MissingPlotStyleWarning);
 
+        public string MissingPlotDeviceWarning =>
+            PlotDevices.Count == 0
+                ? "No hay dispositivos PDF (.pc3) instalados. Instala o registra un plotter PDF en AutoCAD."
+                : string.IsNullOrWhiteSpace(PlotDeviceName)
+                    ? "Selecciona un dispositivo de trazado PDF."
+                    : !PlotDevices.Contains(PlotDeviceName)
+                        ? $"El dispositivo \"{PlotDeviceName}\" ya no está instalado."
+                        : string.Empty;
+
+        public bool HasMissingPlotDevice => !string.IsNullOrEmpty(MissingPlotDeviceWarning);
+
         private void LoadPlotStyleTables()
         {
-            // Al abrir la ventana se relee, por si se instalaron tablas desde la última vez.
             PlotStyleTableRepository.Refresh();
 
             PlotStyleTables.Clear();
@@ -265,6 +286,15 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
             foreach (string table in PlotStyleTableRepository.GetAvailableTables())
                 PlotStyleTables.Add(table);
+        }
+
+        private void LoadPlotDevices()
+        {
+            PlotDeviceRepository.Refresh();
+
+            PlotDevices.Clear();
+            foreach (string device in PlotDeviceRepository.GetAvailablePdfDevices())
+                PlotDevices.Add(device);
         }
 
         private bool _combineIntoSinglePdf;
@@ -331,7 +361,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         public bool CanExport =>
             !IsExporting &&
             SelectedCount > 0 &&
-            !string.IsNullOrWhiteSpace(OutputFolder);
+            !string.IsNullOrWhiteSpace(OutputFolder) &&
+            !HasMissingPlotDevice;
 
         // ---------------------------------------------------------------- commands
 
@@ -367,9 +398,10 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
             var settings = new PdfExportSettings
             {
-                UseLayoutPageSetup = UseLayoutPageSetup,
+                ForcePlotDevice = true,
+                ForcePlotPreset = true,
                 PlotDeviceName = PlotDeviceName,
-                FitToPaper = FitToPaper,
+                PlotTransparency = PlotTransparency,
                 CombineIntoSinglePdf = CombineIntoSinglePdf,
                 PlotStyleTableOverride = ResolvePlotStyleOverride()
             };
@@ -611,13 +643,17 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             OutputFolder = preferences.OutputFolder;
             NamingPattern = preferences.NamingPattern;
             OpenFolderWhenDone = preferences.OpenFolderWhenDone;
-            UseLayoutPageSetup = preferences.PdfUseLayoutPageSetup;
-            PlotDeviceName = preferences.PdfPlotDeviceName;
-            FitToPaper = preferences.PdfFitToPaper;
             CombineIntoSinglePdf = preferences.PdfCombineIntoSinglePdf;
+            PlotTransparency = preferences.PdfPlotTransparency;
 
-            // Solo se restaura si la tabla sigue instalada; si no, vuelve a "usar la del layout".
-            SelectedPlotStyleTable = PlotStyleTables.Contains(preferences.PdfPlotStyleTable)
+            string preferredDevice = preferences.PdfPlotDeviceName;
+            if (!string.IsNullOrWhiteSpace(preferredDevice) && PlotDevices.Contains(preferredDevice))
+                PlotDeviceName = preferredDevice;
+            else
+                PlotDeviceName = PlotDeviceRepository.ResolveDefaultDevice();
+
+            SelectedPlotStyleTable = !string.IsNullOrEmpty(preferences.PdfPlotStyleTable) &&
+                                     PlotStyleTables.Contains(preferences.PdfPlotStyleTable)
                 ? preferences.PdfPlotStyleTable
                 : PlotStyleTableRepository.KeepLayoutTableLabel;
         }
@@ -629,9 +665,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 OutputFolder = OutputFolder,
                 NamingPattern = NamingPattern,
                 OpenFolderWhenDone = OpenFolderWhenDone,
-                PdfUseLayoutPageSetup = UseLayoutPageSetup,
                 PdfPlotDeviceName = PlotDeviceName,
-                PdfFitToPaper = FitToPaper,
+                PdfPlotTransparency = PlotTransparency,
                 PdfCombineIntoSinglePdf = CombineIntoSinglePdf,
                 PdfPlotStyleTable = ResolvePlotStyleOverride()
             });

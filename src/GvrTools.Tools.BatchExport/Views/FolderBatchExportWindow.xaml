@@ -54,21 +54,31 @@
         <Border Grid.Row="3" Background="{StaticResource Gvr.Brush.Surface}" Padding="{StaticResource Gvr.Padding.Card}" Margin="0,0,0,10" IsEnabled="{Binding CanEditOptions}">
             <StackPanel>
                 <TextBlock Text="Opciones de PDF" Style="{StaticResource Gvr.Text.SectionHeader}"/>
-                <TextBlock Text="Cada dibujo se abre brevemente en esta sesión de Civil 3D mientras se exporta (no hay forma de hacerlo sin abrirlo) y se cierra sin guardar cambios; al terminar vuelve tu dibujo activo original."
-                           Style="{StaticResource Gvr.Text.Subtle}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                <CheckBox Content="Usar la configuración de página de cada presentación" IsChecked="{Binding UseLayoutPageSetup}" Margin="0,0,0,6"/>
-                <DockPanel Visibility="{Binding ShowPlotDevice, Converter={StaticResource Gvr.BoolToVisibility}}" Margin="0,0,0,6">
-                    <TextBlock Text="Dispositivo de trazado:" Style="{StaticResource Gvr.Text.Label}"/>
-                    <TextBox Text="{Binding PlotDeviceName, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="{Binding PlotPresetHelpText}" Style="{StaticResource Gvr.Text.Subtle}" TextWrapping="Wrap" Margin="0,0,0,8" FontSize="11"
+                           ToolTip="{Binding PlotPresetHelpText}"/>
+
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock Text="Dispositivo de trazado (.pc3):" Style="{StaticResource Gvr.Text.Label}"
+                               ToolTip="{Binding PlotDeviceHelpText}"/>
+                    <ComboBox ItemsSource="{Binding PlotDevices}" SelectedItem="{Binding PlotDeviceName}"
+                              ToolTip="{Binding PlotDeviceHelpText}"/>
                 </DockPanel>
-                <CheckBox Content="Ajustar a la página" IsChecked="{Binding FitToPaper}" Margin="0,0,0,6"/>
-                <DockPanel Margin="0,0,0,6">
-                    <TextBlock Text="Tabla de estilos (plumas):" Style="{StaticResource Gvr.Text.Label}"/>
+                <TextBlock Text="{Binding MissingPlotDeviceWarning}" TextWrapping="Wrap" Margin="0,0,0,6"
+                           Foreground="{StaticResource Gvr.Brush.Danger}"
+                           Visibility="{Binding HasMissingPlotDevice, Converter={StaticResource Gvr.BoolToVisibility}}"/>
+
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock Text="Tabla de estilos (plumas CTB/STB):" Style="{StaticResource Gvr.Text.Label}"
+                               ToolTip="{Binding PlotStyleHelpText}"/>
                     <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding ImportPlotStyleCommand}"
                             Margin="8,0,0,0"
                             ToolTip="Selecciona un .ctb/.stb del proyecto; se instalará en AutoCAD y quedará seleccionado."/>
-                    <ComboBox ItemsSource="{Binding PlotStyleTables}" SelectedItem="{Binding SelectedPlotStyleTable}"/>
+                    <ComboBox ItemsSource="{Binding PlotStyleTables}" SelectedItem="{Binding SelectedPlotStyleTable}"
+                              ToolTip="{Binding PlotStyleHelpText}"/>
                 </DockPanel>
+
+                <CheckBox Content="Trazar transparencias" IsChecked="{Binding PlotTransparency}" Margin="0,0,0,6"
+                          ToolTip="Equivale a la casilla Plot transparency del cuadro Imprimir de AutoCAD."/>
                 <CheckBox Content="Abrir la carpeta al terminar" IsChecked="{Binding OpenFolderWhenDone}"/>
             </StackPanel>
         </Border>

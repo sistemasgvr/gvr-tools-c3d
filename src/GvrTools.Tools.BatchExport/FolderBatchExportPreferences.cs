@@ -1,3 +1,5 @@
+using GvrTools.Civil3D.Export;
+
 namespace GvrTools.Tools.BatchExport
 {
     /// <summary>What the multi-drawing exporter remembers between AutoCAD sessions.</summary>
@@ -15,11 +17,9 @@ namespace GvrTools.Tools.BatchExport
 
         public bool OpenFolderWhenDone { get; set; } = true;
 
-        public bool PdfUseLayoutPageSetup { get; set; } = true;
+        public string PdfPlotDeviceName { get; set; } = PlotDeviceRepository.DefaultPdfDeviceName;
 
-        public string PdfPlotDeviceName { get; set; } = "DWG To PDF.pc3";
-
-        public bool PdfFitToPaper { get; set; } = true;
+        public bool PdfPlotTransparency { get; set; } = true;
 
         /// <summary>Plot style table (.ctb/.stb) chosen last time, or empty to keep each layout's own.</summary>
         public string PdfPlotStyleTable { get; set; } = string.Empty;

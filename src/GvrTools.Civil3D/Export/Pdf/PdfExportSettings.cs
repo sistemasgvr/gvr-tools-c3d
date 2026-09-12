@@ -3,37 +3,45 @@ namespace GvrTools.Civil3D.Export.Pdf
     /// <summary>
     /// PDF plot options that apply to every layout of a run.
     ///
-    /// Deliberately smaller than Revit's equivalent: AutoCAD plots each layout using its own saved
-    /// page setup (paper size, plot style, plot area) by default, so most of what Revit's
-    /// PdfExportSettings had to reconstruct by hand (paper size matching, orientation, margins) is
-    /// already solved by the layout's own configuration. What is left here is what a batch run
-    /// actually needs to override or confirm before writing files unattended.
+    /// Paper size (<c>CanonicalMediaName</c>) always comes from each layout. What this class
+    /// overrides — when the corresponding flags are on — is the plot device (.pc3), the plot style
+    /// table (.ctb/.stb), the Extents / 1:1 / centered preset, and plot transparency. See
+    /// <c>docs/PLOT_API_NOTES.md</c>.
     /// </summary>
     public sealed class PdfExportSettings : IExportFormatSettings
     {
         public ExportFormat Format => ExportFormat.Pdf;
 
         /// <summary>
-        /// Use each layout's own saved page setup (paper size, plot device, plot style table) as-is.
-        /// When false, every layout is plotted through <see cref="PlotDeviceName"/> instead,
-        /// overriding whatever device the page setup points at.
+        /// When true (default), every layout is plotted through <see cref="PlotDeviceName"/>,
+        /// overriding whatever device the layout's page setup points at. This is what lets a custom
+        /// high-DPI "DWG To PDF HQ.pc3" reach every sheet — AutoCAD's built-in Batch Plot often
+        /// fails to honour a modified PC3 across a sheet set.
         /// </summary>
-        public bool UseLayoutPageSetup { get; set; } = true;
+        public bool ForcePlotDevice { get; set; } = true;
 
         /// <summary>
-        /// Plot device (.pc3) used when <see cref="UseLayoutPageSetup"/> is false, or when a layout
-        /// has no usable page setup at all. "DWG To PDF.pc3" ships with every AutoCAD-based product
-        /// since 2007 and needs no separate installation, unlike Revit's PDF24 dependency on 2021.
+        /// Plot device (.pc3) used when <see cref="ForcePlotDevice"/> is true, or when a layout has
+        /// no usable PDF device. "DWG To PDF.pc3" ships with every AutoCAD-based product.
         /// </summary>
         public string PlotDeviceName { get; set; } = "DWG To PDF.pc3";
 
-        /// <summary>Scale the drawing to fill the page.</summary>
-        public bool FitToPaper { get; set; } = true;
+        /// <summary>
+        /// When true (default), force Extents + standard scale 1:1 + centered plot (Fit to paper
+        /// off). Matches the Civil 3D workflow agreed for GVR Tools v1.
+        /// </summary>
+        public bool ForcePlotPreset { get; set; } = true;
+
+        /// <summary>
+        /// When true (default), set <c>PlotSettings.PlotTransparency</c> so transparent objects
+        /// reach the PDF the same way the Plot dialog checkbox does.
+        /// </summary>
+        public bool PlotTransparency { get; set; } = true;
 
         /// <summary>
         /// When true, every selected layout is plotted as one page of a single multi-page PDF instead
         /// of one file per layout. Uses AutoCAD's multi-sheet plot pipeline (one BeginDocument, one
-        /// page per layout).
+        /// page per layout). Only used by the open-drawing batch tool.
         /// </summary>
         public bool CombineIntoSinglePdf { get; set; }
 

@@ -6,10 +6,12 @@ using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.PlottingServices;
 using PlotType = Autodesk.AutoCAD.DatabaseServices.PlotType;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Core.Application;
+using System.Collections.Generic;
 using GvrTools.Civil3D.Layouts;
 using GvrTools.Civil3D.Model;
 using GvrTools.Core.Batch;
 using GvrTools.Core.Diagnostics;
+using GvrTools.Core.IO;
 using GvrTools.Core.Naming;
 
 namespace GvrTools.Civil3D.Export.Pdf
@@ -33,7 +35,7 @@ namespace GvrTools.Civil3D.Export.Pdf
         public ExportFormat Format => ExportFormat.Pdf;
 
         public string StrategyDescription =>
-            "Motor de trazado nativo de AutoCAD (DWG To PDF.pc3): sin ventanas y sin bloquear el equipo.";
+            "Motor de trazado nativo de AutoCAD: PC3 y CTB forzados, Extents 1:1 centrado, papel del layout.";
 
         public IExportSession BeginSession(ExportRequest request, int totalItems)
         {
@@ -230,36 +232,50 @@ namespace GvrTools.Civil3D.Export.Pdf
 
                 PlotSettingsValidator validator = PlotSettingsValidator.Current;
 
-                // Una exportación a PDF SIEMPRE debe trazar con un dispositivo ePlot que produzca PDF
-                // real. Si "usar configuración de página" está activo, se respeta el dispositivo que
-                // ya tiene la presentación guardada (normalmente "DWG To PDF.pc3" u otro driver ePlot
-                // que el usuario configuró en el layout); si no lo tiene o no es válido, o si la
-                // opción está desactivada, se fuerza PlotDeviceName. Sin esta comprobación, un cajetín
-                // apuntando a una impresora del sistema (p. ej. un driver PScript) produciría un
-                // archivo .pdf que en realidad es PostScript y no abre.
-                string deviceToUse = _settings.UseLayoutPageSetup && IsUsablePdfDevice(plotSettings.PlotConfigurationName)
-                    ? plotSettings.PlotConfigurationName
-                    : _settings.PlotDeviceName;
+                // Por defecto se fuerza el PC3 elegido en la UI en TODAS las hojas (diferenciador vs
+                // Batch Plot nativo con page setups). Solo se conserva el del layout si ForcePlotDevice
+                // está off Y ese dispositivo ya es un PDF usable.
+                string deviceToUse;
+                if (_settings.ForcePlotDevice ||
+                    !PlotDeviceRepository.IsUsablePdfDevice(plotSettings.PlotConfigurationName))
+                {
+                    deviceToUse = string.IsNullOrWhiteSpace(_settings.PlotDeviceName)
+                        ? PlotDeviceRepository.DefaultPdfDeviceName
+                        : _settings.PlotDeviceName.Trim();
+                }
+                else
+                {
+                    deviceToUse = plotSettings.PlotConfigurationName;
+                }
 
-                EnsureDeviceAndMedia(validator, plotSettings, deviceToUse);
+                EnsureDeviceAndMedia(validator, plotSettings, deviceToUse, liveLayout.LayoutName);
 
-                // "Ajustar a la página" (fit to paper / zoom to fit) reescala y centra el dibujo para
-                // llenar el papel. Cuando está desactivado se deja intacta la escala y el área de
-                // trazado que ya trae el layout (copiadas por CopyFrom arriba) en vez de forzarlas.
-                if (_settings.FitToPaper)
+                // Preset GVR: Extents + 1:1 + centrado (sin ScaleToFit / Fit to paper).
+                // StdScaleType.StdScale1To1 — ver docs/PLOT_API_NOTES.md.
+                if (_settings.ForcePlotPreset)
                 {
                     validator.SetPlotType(plotSettings, PlotType.Extents);
                     validator.SetUseStandardScale(plotSettings, true);
-                    validator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
+                    validator.SetStdScaleType(plotSettings, StdScaleType.StdScale1To1);
                     validator.SetPlotCentered(plotSettings, true);
                 }
 
                 ApplyPlotStyleTable(validator, plotSettings, liveLayout);
+                ApplyPlotTransparency(plotSettings);
 
                 plotInfo.OverrideSettings = plotSettings;
 
-                var validity = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
-                validity.Validate(plotInfo);
+                try
+                {
+                    var validity = new PlotInfoValidator { MediaMatchingPolicy = MatchingPolicy.MatchEnabled };
+                    validity.Validate(plotInfo);
+                }
+                catch (Exception ex)
+                {
+                    throw new PlotDeviceSetupException(
+                        $"La validación del trazado falló para '{liveLayout.LayoutName}' " +
+                        $"(dispositivo \"{deviceToUse}\"): {ex.Message}", ex);
+                }
             }
 
             /// <summary>
@@ -270,10 +286,8 @@ namespace GvrTools.Civil3D.Export.Pdf
             /// assignments disabled ignores its own table, and the PDF comes out with raw object
             /// colours and lineweights.
             ///
-            /// A layout can also reference a table that is not installed here (what the Plot dialog
-            /// labels "<c>Lombardi.ctb (missing)</c>"). <see cref="PlotSettingsValidator.SetCurrentStyleSheet"/>
-            /// throws on those, which would fail the layout, so a missing table is reported as a
-            /// warning and the export continues with whatever AutoCAD falls back to.
+            /// When the UI requested an override and AutoCAD rejects it, the layout fails (hard)
+            /// instead of plotting with raw colours silently.
             /// </summary>
             private void ApplyPlotStyleTable(PlotSettingsValidator validator, PlotSettings plotSettings, Layout liveLayout)
             {
@@ -282,8 +296,6 @@ namespace GvrTools.Civil3D.Export.Pdf
 
                 if (!isOverride)
                 {
-                    // Sin override se conserva la tabla del layout (ya copiada por CopyFrom); solo se
-                    // avisa si apunta a una que no está instalada, porque el PDF saldría sin plumas.
                     string own = SafeCurrentStyleSheet(liveLayout);
                     if (!string.IsNullOrWhiteSpace(own) && !PlotStyleTableRepository.IsInstalled(own))
                     {
@@ -299,14 +311,30 @@ namespace GvrTools.Civil3D.Export.Pdf
                     }
                     catch (Exception ex)
                     {
-                        _log.Warn($"No se pudo aplicar la tabla de estilos '{requested}': {ex.Message}");
-                        return;
+                        throw new PlotDeviceSetupException(
+                            $"No se pudo aplicar la tabla de estilos '{requested}' en '{liveLayout.LayoutName}': {ex.Message}",
+                            ex);
                     }
                 }
 
-                // Sin esto la tabla queda asignada pero no se usa al trazar.
                 try { plotSettings.PlotPlotStyles = true; }
-                catch (Exception ex) { _log.Warn("No se pudo activar el uso de estilos de trazado: " + ex.Message); }
+                catch (Exception ex)
+                {
+                    throw new PlotDeviceSetupException(
+                        "No se pudo activar el uso de estilos de trazado (PlotPlotStyles): " + ex.Message, ex);
+                }
+            }
+
+            private void ApplyPlotTransparency(PlotSettings plotSettings)
+            {
+                try
+                {
+                    plotSettings.PlotTransparency = _settings.PlotTransparency;
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn("No se pudo aplicar PlotTransparency: " + ex.Message);
+                }
             }
 
             private static string SafeCurrentStyleSheet(Layout layout)
@@ -435,13 +463,15 @@ namespace GvrTools.Civil3D.Export.Pdf
             }
 
             /// <summary>
-            /// Points the plot settings at <paramref name="deviceName"/> and guarantees the paper
-            /// size is one the device actually supports. Without a canonical media name that belongs
-            /// to the device, <see cref="PlotInfoValidator"/> fails with <c>eNoMatchingMedia</c>. The
-            /// layout's original size is preserved when the device supports it; otherwise a common
-            /// default is chosen so the export still produces a PDF.
+            /// Points the plot settings at <paramref name="deviceName"/> and restores the layout's
+            /// paper size when the device supports it. Without a canonical media name that belongs
+            /// to the device, <see cref="PlotInfoValidator"/> fails with <c>eNoMatchingMedia</c>.
             /// </summary>
-            private static void EnsureDeviceAndMedia(PlotSettingsValidator validator, PlotSettings settings, string deviceName)
+            private void EnsureDeviceAndMedia(
+                PlotSettingsValidator validator,
+                PlotSettings settings,
+                string deviceName,
+                string layoutName)
             {
                 try
                 {
@@ -456,51 +486,37 @@ namespace GvrTools.Civil3D.Export.Pdf
                     validator.SetPlotConfigurationName(settings, deviceName, null);
                     validator.RefreshLists(settings);
 
-                    System.Collections.Specialized.StringCollection mediaList = validator.GetCanonicalMediaNameList(settings);
-                    if (mediaList.Count == 0) return;
+                    System.Collections.Specialized.StringCollection mediaCollection =
+                        validator.GetCanonicalMediaNameList(settings);
+                    if (mediaCollection.Count == 0) return;
 
-                    // Se prefiere el papel que traía el layout; si el dispositivo no lo ofrece (o se
-                    // perdió al cambiar de dispositivo), se cae a uno estándar antes que fallar.
-                    string media = !string.IsNullOrWhiteSpace(desiredMedia) && mediaList.Contains(desiredMedia)
-                        ? desiredMedia
-                        : PickDefaultMedia(mediaList);
+                    var mediaList = new List<string>(mediaCollection.Count);
+                    foreach (string m in mediaCollection)
+                        mediaList.Add(m);
+
+                    string media = PlotMediaResolver.Resolve(desiredMedia, mediaList);
+                    if (media == null) return;
+
+                    if (!string.IsNullOrWhiteSpace(desiredMedia) &&
+                        !string.Equals(media, desiredMedia, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _log.Warn(
+                            $"La presentación '{layoutName}' pide el papel '{desiredMedia}', " +
+                            $"pero el dispositivo \"{deviceName}\" no lo ofrece; se usará '{media}'.");
+                    }
 
                     if (!string.Equals(settings.CanonicalMediaName, media, StringComparison.OrdinalIgnoreCase))
                         validator.SetCanonicalMediaName(settings, media);
                 }
+                catch (PlotDeviceSetupException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
-                    // El mensaje incluye el error real de AutoCAD: la causa no siempre es que falte
-                    // el dispositivo (puede ser un tamaño de papel que ya no existe en el .pc3, un
-                    // layout con la configuración de página dañada, etc.), y ocultarlo tras un texto
-                    // genérico deja al usuario buscando un problema que no tiene.
                     throw new PlotDeviceSetupException(
                         $"No se pudo configurar el dispositivo de trazado \"{deviceName}\": {ex.Message}", ex);
                 }
-            }
-
-            /// <summary>
-            /// A layout's saved plot configuration is only safe to keep for a PDF export when it is
-            /// an ePlot-family device that actually writes PDF (as opposed to a system printer driver,
-            /// which would produce a ".pdf" file that is really PostScript or raster and won't open).
-            /// </summary>
-            private static bool IsUsablePdfDevice(string plotConfigurationName)
-            {
-                return !string.IsNullOrWhiteSpace(plotConfigurationName) &&
-                    plotConfigurationName.IndexOf("pdf", StringComparison.OrdinalIgnoreCase) >= 0;
-            }
-
-            private static string PickDefaultMedia(System.Collections.Specialized.StringCollection mediaList)
-            {
-                // Preferir un tamaño común y ampliamente disponible en DWG To PDF.pc3, en orden.
-                string[] preferred = { "ISO_A4_", "ISO_full_bleed_A4_", "ANSI_A_", "A4", "Letter" };
-
-                foreach (string want in preferred)
-                    foreach (string media in mediaList)
-                        if (media != null && media.IndexOf(want, StringComparison.OrdinalIgnoreCase) >= 0)
-                            return media;
-
-                return mediaList[0];
             }
         }
     }
