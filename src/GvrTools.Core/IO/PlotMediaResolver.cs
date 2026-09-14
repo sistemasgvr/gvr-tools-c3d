@@ -11,6 +11,28 @@ namespace GvrTools.Core.IO
     {
         /// <summary>
         /// Returns <paramref name="desiredMedia"/> when it appears in <paramref name="mediaList"/>
+        /// (ordinal-ignore-case); otherwise null.
+        /// </summary>
+        public static string FindExact(string desiredMedia, IList<string> mediaList)
+        {
+            if (mediaList == null || mediaList.Count == 0 || string.IsNullOrWhiteSpace(desiredMedia))
+                return null;
+
+            for (int i = 0; i < mediaList.Count; i++)
+            {
+                string media = mediaList[i];
+                if (media != null &&
+                    string.Equals(media, desiredMedia, StringComparison.OrdinalIgnoreCase))
+                {
+                    return media;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Returns <paramref name="desiredMedia"/> when it appears in <paramref name="mediaList"/>
         /// (ordinal-ignore-case); otherwise the first preferred common size found, else the first
         /// entry. Returns null when the list is empty.
         /// </summary>

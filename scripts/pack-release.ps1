@@ -115,6 +115,19 @@ foreach ($year in $availableYears) {
     Write-Host "  + Contents\$year" -ForegroundColor Green
 }
 
+$plottersSource = Join-Path $repoRoot "deploy\plotters"
+$plottersDest = Join-Path $bundleStage "Plotters"
+if (Test-Path $plottersSource) {
+    New-Item -ItemType Directory -Path $plottersDest -Force | Out-Null
+    Copy-Item (Join-Path $plottersSource "*") $plottersDest -Force -ErrorAction SilentlyContinue
+    $hq = Join-Path $plottersDest "DWG To PDF_HQ_.pc3"
+    if (Test-Path $hq) {
+        Write-Host "  + Plotters\DWG To PDF_HQ_.pc3" -ForegroundColor Green
+    } else {
+        Write-Host "  (sin DWG To PDF_HQ_.pc3 - el boton Instalar HQ pedira el archivo)" -ForegroundColor Yellow
+    }
+}
+
 Copy-Item $installerExe (Join-Path $stageDir "Instalar-GvrTools.exe") -Force
 
 @"

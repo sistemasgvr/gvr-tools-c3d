@@ -57,5 +57,24 @@ namespace GvrTools.Core.Tests
 
             Assert.Equal("Custom_Weird_Size", result);
         }
+
+        [Fact]
+        public void FindExact_returns_match_case_insensitive()
+        {
+            var list = new List<string> { "ISO_full_bleed_A4_(297.00_x_210.00_MM)", "Letter" };
+
+            Assert.Equal(
+                "ISO_full_bleed_A4_(297.00_x_210.00_MM)",
+                PlotMediaResolver.FindExact("iso_full_bleed_a4_(297.00_x_210.00_mm)", list));
+        }
+
+        [Fact]
+        public void FindExact_returns_null_when_missing()
+        {
+            var list = new List<string> { "Letter" };
+            Assert.Null(PlotMediaResolver.FindExact("ISO_full_bleed_A4_(297.00_x_210.00_MM)", list));
+            Assert.Null(PlotMediaResolver.FindExact("", list));
+            Assert.Null(PlotMediaResolver.FindExact("Letter", null));
+        }
     }
 }

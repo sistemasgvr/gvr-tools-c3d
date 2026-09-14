@@ -1,12 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.PlottingServices;
 using PlotType = Autodesk.AutoCAD.DatabaseServices.PlotType;
 using AcApp = Autodesk.AutoCAD.ApplicationServices.Core.Application;
-using System.Collections.Generic;
 using GvrTools.Civil3D.Layouts;
 using GvrTools.Civil3D.Model;
 using GvrTools.Core.Batch;
@@ -35,7 +36,7 @@ namespace GvrTools.Civil3D.Export.Pdf
         public ExportFormat Format => ExportFormat.Pdf;
 
         public string StrategyDescription =>
-            "Motor de trazado nativo de AutoCAD: PC3 y CTB forzados, Extents 1:1 centrado, papel del layout.";
+            "Motor de trazado nativo de AutoCAD: PC3 y CTB forzados, Extents 1:1 centrado, ISO full bleed A4 por defecto.";
 
         public IExportSession BeginSession(ExportRequest request, int totalItems)
         {
@@ -232,9 +233,6 @@ namespace GvrTools.Civil3D.Export.Pdf
 
                 PlotSettingsValidator validator = PlotSettingsValidator.Current;
 
-                // Por defecto se fuerza el PC3 elegido en la UI en TODAS las hojas (diferenciador vs
-                // Batch Plot nativo con page setups). Solo se conserva el del layout si ForcePlotDevice
-                // está off Y ese dispositivo ya es un PDF usable.
                 string deviceToUse;
                 if (_settings.ForcePlotDevice ||
                     !PlotDeviceRepository.IsUsablePdfDevice(plotSettings.PlotConfigurationName))
@@ -249,19 +247,11 @@ namespace GvrTools.Civil3D.Export.Pdf
                 }
 
                 EnsureDeviceAndMedia(validator, plotSettings, deviceToUse, liveLayout.LayoutName);
-
-                // Preset GVR: Extents + 1:1 + centrado (sin ScaleToFit / Fit to paper).
-                // StdScaleType.StdScale1To1 — ver docs/PLOT_API_NOTES.md.
-                if (_settings.ForcePlotPreset)
-                {
-                    validator.SetPlotType(plotSettings, PlotType.Extents);
-                    validator.SetUseStandardScale(plotSettings, true);
-                    validator.SetStdScaleType(plotSettings, StdScaleType.StdScale1To1);
-                    validator.SetPlotCentered(plotSettings, true);
-                }
-
+                ApplyPlotArea(validator, plotSettings, liveLayout);
+                ApplyPlotOrientation(validator, plotSettings);
+                ApplyScaleAndCenter(validator, plotSettings);
                 ApplyPlotStyleTable(validator, plotSettings, liveLayout);
-                ApplyPlotTransparency(plotSettings);
+                ApplyPlotOptionFlags(plotSettings);
 
                 plotInfo.OverrideSettings = plotSettings;
 
@@ -278,16 +268,126 @@ namespace GvrTools.Civil3D.Export.Pdf
                 }
             }
 
+            private void ApplyPlotArea(PlotSettingsValidator validator, PlotSettings plotSettings, Layout liveLayout)
+            {
+                PlotType plotType = MapPlotArea(_settings.PlotArea);
+
+                if (plotType == PlotType.Window)
+                {
+                    if (!HasUsablePlotWindow(plotSettings))
+                    {
+                        throw new PlotDeviceSetupException(
+                            $"La presentación '{liveLayout.LayoutName}' no tiene una ventana de trazado definida. " +
+                            "Configura Window en la configuración de página del layout o elige Extents / Display / Layout.");
+                    }
+                }
+
+                try
+                {
+                    validator.SetPlotType(plotSettings, plotType);
+                }
+                catch (Exception ex)
+                {
+                    throw new PlotDeviceSetupException(
+                        $"No se pudo establecer el área de trazado ({_settings.PlotArea}) en '{liveLayout.LayoutName}': {ex.Message}",
+                        ex);
+                }
+            }
+
+            private static bool HasUsablePlotWindow(PlotSettings plotSettings)
+            {
+                try
+                {
+                    Extents2d window = plotSettings.PlotWindowArea;
+                    double width = Math.Abs(window.MaxPoint.X - window.MinPoint.X);
+                    double height = Math.Abs(window.MaxPoint.Y - window.MinPoint.Y);
+                    return width > 1e-9 && height > 1e-9;
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            }
+
+            private static PlotType MapPlotArea(PdfPlotArea area)
+            {
+                switch (area)
+                {
+                    case PdfPlotArea.Window: return PlotType.Window;
+                    case PdfPlotArea.Display: return PlotType.Display;
+                    case PdfPlotArea.Layout: return PlotType.Layout;
+                    default: return PlotType.Extents;
+                }
+            }
+
+            private void ApplyScaleAndCenter(PlotSettingsValidator validator, PlotSettings plotSettings)
+            {
+                try
+                {
+                    if (_settings.ForcePlotPreset)
+                    {
+                        validator.SetUseStandardScale(plotSettings, true);
+                        validator.SetStdScaleType(plotSettings, StdScaleType.StdScale1To1);
+                        validator.SetPlotCentered(plotSettings, true);
+                    }
+                    else if (_settings.FitToPaper)
+                    {
+                        validator.SetUseStandardScale(plotSettings, true);
+                        validator.SetStdScaleType(plotSettings, StdScaleType.ScaleToFit);
+                        validator.SetPlotCentered(plotSettings, true);
+                    }
+                    else if (_settings.UseCustomScale)
+                    {
+                        double num = _settings.CustomScaleNumerator;
+                        double den = _settings.CustomScaleDenominator;
+                        if (num <= 0 || den <= 0)
+                        {
+                            throw new PlotDeviceSetupException(
+                                "La escala personalizada debe usar valores mayores que cero (p. ej. 1 mm = 1 unidad).");
+                        }
+
+                        validator.SetUseStandardScale(plotSettings, false);
+                        validator.SetCustomPrintScale(plotSettings, new CustomScale(num, den));
+                        validator.SetPlotCentered(plotSettings, _settings.CenterPlot);
+                    }
+                    else
+                    {
+                        validator.SetPlotCentered(plotSettings, _settings.CenterPlot);
+                    }
+
+                    plotSettings.ScaleLineweights = _settings.ScaleLineweights;
+                }
+                catch (PlotDeviceSetupException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new PlotDeviceSetupException(
+                        "No se pudo aplicar la escala/centrado del trazado: " + ex.Message, ex);
+                }
+            }
+
+            private void ApplyPlotOrientation(PlotSettingsValidator validator, PlotSettings plotSettings)
+            {
+                try
+                {
+                    // DevGuide: Landscape ≈ Degrees000, Portrait ≈ Degrees090.
+                    PlotRotation rotation = _settings.PlotOrientation == PdfPlotOrientation.Portrait
+                        ? PlotRotation.Degrees090
+                        : PlotRotation.Degrees000;
+                    validator.SetPlotRotation(plotSettings, rotation);
+                }
+                catch (Exception ex)
+                {
+                    throw new PlotDeviceSetupException(
+                        "No se pudo aplicar la orientación del trazado: " + ex.Message, ex);
+                }
+            }
+
             /// <summary>
             /// Applies the pen assignments (.ctb/.stb) the PDF should be plotted with.
-            ///
-            /// Two things have to be right for a plot style table to actually reach the paper: the
-            /// table has to be set, and <c>PlotPlotStyles</c> has to be on — a layout saved with pen
-            /// assignments disabled ignores its own table, and the PDF comes out with raw object
-            /// colours and lineweights.
-            ///
-            /// When the UI requested an override and AutoCAD rejects it, the layout fails (hard)
-            /// instead of plotting with raw colours silently.
+            /// When the UI requested an override and AutoCAD rejects it, the layout fails (hard).
             /// </summary>
             private void ApplyPlotStyleTable(PlotSettingsValidator validator, PlotSettings plotSettings, Layout liveLayout)
             {
@@ -317,24 +417,28 @@ namespace GvrTools.Civil3D.Export.Pdf
                     }
                 }
 
-                try { plotSettings.PlotPlotStyles = true; }
+                try
+                {
+                    plotSettings.PlotPlotStyles = _settings.PlotWithPlotStyles;
+                }
                 catch (Exception ex)
                 {
                     throw new PlotDeviceSetupException(
-                        "No se pudo activar el uso de estilos de trazado (PlotPlotStyles): " + ex.Message, ex);
+                        "No se pudo configurar el uso de estilos de trazado (PlotPlotStyles): " + ex.Message, ex);
                 }
             }
 
-            private void ApplyPlotTransparency(PlotSettings plotSettings)
+            private void ApplyPlotOptionFlags(PlotSettings plotSettings)
             {
-                try
-                {
-                    plotSettings.PlotTransparency = _settings.PlotTransparency;
-                }
-                catch (Exception ex)
-                {
-                    _log.Warn("No se pudo aplicar PlotTransparency: " + ex.Message);
-                }
+                try { plotSettings.PrintLineweights = _settings.PlotObjectLineweights; }
+                catch (Exception ex) { _log.Warn("No se pudo aplicar PrintLineweights: " + ex.Message); }
+
+                try { plotSettings.PlotTransparency = _settings.PlotTransparency; }
+                catch (Exception ex) { _log.Warn("No se pudo aplicar PlotTransparency: " + ex.Message); }
+
+                // UI “Plot paperspace last” ↔ DrawViewportsFirst (DevGuide sample).
+                try { plotSettings.DrawViewportsFirst = _settings.PlotPaperspaceLast; }
+                catch (Exception ex) { _log.Warn("No se pudo aplicar DrawViewportsFirst: " + ex.Message); }
             }
 
             private static string SafeCurrentStyleSheet(Layout layout)
@@ -475,13 +579,14 @@ namespace GvrTools.Civil3D.Export.Pdf
             {
                 try
                 {
-                    // SIEMPRE se asigna el dispositivo, aunque el nombre copiado del layout ya
-                    // coincida. CopyFrom trae el NOMBRE del dispositivo, no el vínculo con su
-                    // configuración real: en un dibujo recién abierto el validator todavía no
-                    // resolvió ese .pc3, y saltarse esta llamada hace que GetCanonicalMediaNameList
-                    // opere sobre un estado sin inicializar y falle. El tamaño de papel se guarda
-                    // antes y se restaura después, que es lo que esta llamada podría perder.
-                    string desiredMedia = settings.CanonicalMediaName;
+                    string layoutMedia = settings.CanonicalMediaName;
+                    bool preferLandscape = _settings.PlotOrientation == PdfPlotOrientation.Landscape;
+                    if (_settings.PaperMode == PdfPaperMode.ForceIsoFullBleed &&
+                        !string.IsNullOrWhiteSpace(layoutMedia))
+                    {
+                        // Prefer explicit UI orientation; if unset path, still OK (Landscape default).
+                        preferLandscape = _settings.PlotOrientation != PdfPlotOrientation.Portrait;
+                    }
 
                     validator.SetPlotConfigurationName(settings, deviceName, null);
                     validator.RefreshLists(settings);
@@ -494,15 +599,47 @@ namespace GvrTools.Civil3D.Export.Pdf
                     foreach (string m in mediaCollection)
                         mediaList.Add(m);
 
-                    string media = PlotMediaResolver.Resolve(desiredMedia, mediaList);
-                    if (media == null) return;
-
-                    if (!string.IsNullOrWhiteSpace(desiredMedia) &&
-                        !string.Equals(media, desiredMedia, StringComparison.OrdinalIgnoreCase))
+                    string media;
+                    if (_settings.PaperMode == PdfPaperMode.ForceIsoFullBleed)
                     {
-                        _log.Warn(
-                            $"La presentación '{layoutName}' pide el papel '{desiredMedia}', " +
-                            $"pero el dispositivo \"{deviceName}\" no lo ofrece; se usará '{media}'.");
+                        string letter = IsoSizeToLetter(_settings.IsoFullBleedSize);
+                        media = IsoFullBleedMediaPicker.Pick(letter, mediaList, preferLandscape);
+                        if (media == null)
+                        {
+                            throw new PlotDeviceSetupException(
+                                $"El dispositivo \"{deviceName}\" no ofrece ISO full bleed {letter} " +
+                                $"(presentación '{layoutName}'). Elige otro plotter o usa el tamaño del layout.");
+                        }
+                    }
+                    else if (_settings.PaperMode == PdfPaperMode.SelectFromDevice)
+                    {
+                        string wanted = (_settings.SelectedCanonicalMediaName ?? string.Empty).Trim();
+                        if (string.IsNullOrEmpty(wanted))
+                        {
+                            throw new PlotDeviceSetupException(
+                                "Selecciona un tamaño de papel de la lista del dispositivo.");
+                        }
+
+                        media = PlotMediaResolver.FindExact(wanted, mediaList);
+                        if (media == null)
+                        {
+                            throw new PlotDeviceSetupException(
+                                $"El papel \"{wanted}\" no está disponible en \"{deviceName}\" " +
+                                $"(presentación '{layoutName}'). Elige otro tamaño o cambia de plotter.");
+                        }
+                    }
+                    else
+                    {
+                        media = PlotMediaResolver.Resolve(layoutMedia, mediaList);
+                        if (media == null) return;
+
+                        if (!string.IsNullOrWhiteSpace(layoutMedia) &&
+                            !string.Equals(media, layoutMedia, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _log.Warn(
+                                $"La presentación '{layoutName}' pide el papel '{layoutMedia}', " +
+                                $"pero el dispositivo \"{deviceName}\" no lo ofrece; se usará '{media}'.");
+                        }
                     }
 
                     if (!string.Equals(settings.CanonicalMediaName, media, StringComparison.OrdinalIgnoreCase))
@@ -516,6 +653,19 @@ namespace GvrTools.Civil3D.Export.Pdf
                 {
                     throw new PlotDeviceSetupException(
                         $"No se pudo configurar el dispositivo de trazado \"{deviceName}\": {ex.Message}", ex);
+                }
+            }
+
+            private static string IsoSizeToLetter(IsoFullBleedSize size)
+            {
+                switch (size)
+                {
+                    case IsoFullBleedSize.A0: return "A0";
+                    case IsoFullBleedSize.A1: return "A1";
+                    case IsoFullBleedSize.A2: return "A2";
+                    case IsoFullBleedSize.A3: return "A3";
+                    case IsoFullBleedSize.A4: return "A4";
+                    default: return "A4";
                 }
             }
         }

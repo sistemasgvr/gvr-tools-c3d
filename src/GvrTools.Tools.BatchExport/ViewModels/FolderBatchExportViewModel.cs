@@ -49,6 +49,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             BrowseDestinationCommand = new RelayCommand(BrowseDestinationFolder);
             OpenFolderCommand = new RelayCommand(() => _dialogs.Reveal(DestinationFolder));
             ImportPlotStyleCommand = new RelayCommand(ImportPlotStyleTable);
+            InstallHqPlotterCommand = new RelayCommand(InstallHqPlotter);
             ExportCommand = new RelayCommand(StartExport, () => CanExport);
             CancelCommand = new RelayCommand(RequestCancel, () => IsExporting);
 
@@ -171,30 +172,170 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 {
                     Raise(nameof(CanExport), nameof(MissingPlotDeviceWarning), nameof(HasMissingPlotDevice));
                     ExportCommand?.RaiseCanExecuteChanged();
+                    ReloadDeviceMediaNames();
                 }
             }
         }
 
-        public string PlotDeviceHelpText =>
-            "Elige el .pc3 instalado. Para CIP y sellos legibles usa una copia HQ de \"DWG To PDF.pc3\" " +
-            "(Propiedades personalizadas, DPI alto). Se aplica a todas las presentaciones de todos los DWG del lote.";
+        public string PlotDeviceToolTip =>
+            "Plotter PDF (.pc3) aplicado a todas las presentaciones de todos los DWG. " +
+            "Los dibujos deben estar cerrados en esta sesión. Para sellos densos, usa un plotter HQ.";
 
-        public string PlotPresetHelpText =>
-            "Preset GVR: Extents, escala 1:1, centrado, sin ajustar a la página. " +
-            "El tamaño de papel lo define cada presentación. Los DWG deben estar cerrados (no abiertos en esta sesión).";
+        public IReadOnlyList<ChoiceItem<PdfPaperMode>> PaperModeChoices { get; } = ChoiceItem.List(
+            ChoiceItem.Of(PdfPaperMode.ForceIsoFullBleed, "Forzar ISO full bleed"),
+            ChoiceItem.Of(PdfPaperMode.UseLayout, "Usar tamaño del layout"),
+            ChoiceItem.Of(PdfPaperMode.SelectFromDevice, "Elegir del dispositivo…"));
 
-        private bool _plotTransparency = true;
-        public bool PlotTransparency
+        private PdfPaperMode _paperMode = PdfPaperMode.ForceIsoFullBleed;
+        public PdfPaperMode PaperMode
         {
-            get => _plotTransparency;
-            set => Set(ref _plotTransparency, value);
+            get => _paperMode;
+            set
+            {
+                if (Set(ref _paperMode, value))
+                {
+                    Raise(nameof(ShowIsoFullBleedSize));
+                    Raise(nameof(ShowDeviceMediaList));
+                }
+            }
         }
 
-        /// <summary>
-        /// Installed plot style tables, plus a first entry meaning "leave each layout's own table".
-        /// Across many drawings the tables they reference vary, so this is the one place a user can
-        /// force a single, known-installed set of pen assignments for the whole run.
-        /// </summary>
+        public bool ShowIsoFullBleedSize => PaperMode == PdfPaperMode.ForceIsoFullBleed;
+
+        public bool ShowDeviceMediaList => PaperMode == PdfPaperMode.SelectFromDevice;
+
+        public string PaperModeToolTip =>
+            "Por defecto se fuerza ISO full bleed A4. También puedes respetar cada layout o elegir del .pc3.";
+
+        public IReadOnlyList<ChoiceItem<IsoFullBleedSize>> IsoSizeChoices { get; } = ChoiceItem.List(
+            ChoiceItem.Of(IsoFullBleedSize.A0, "A0"),
+            ChoiceItem.Of(IsoFullBleedSize.A1, "A1"),
+            ChoiceItem.Of(IsoFullBleedSize.A2, "A2"),
+            ChoiceItem.Of(IsoFullBleedSize.A3, "A3"),
+            ChoiceItem.Of(IsoFullBleedSize.A4, "A4"));
+
+        private IsoFullBleedSize _selectedIsoSize = IsoFullBleedSize.A4;
+        public IsoFullBleedSize SelectedIsoSize
+        {
+            get => _selectedIsoSize;
+            set => Set(ref _selectedIsoSize, value);
+        }
+
+        public string IsoSizeToolTip =>
+            "Tamaño ISO full bleed. La orientación Vertical/Horizontal elige entre las variantes del plotter.";
+
+        public ObservableCollection<string> DeviceMediaNames { get; } = new ObservableCollection<string>();
+
+        private string _selectedDeviceMediaName = string.Empty;
+        public string SelectedDeviceMediaName
+        {
+            get => _selectedDeviceMediaName;
+            set => Set(ref _selectedDeviceMediaName, value ?? string.Empty);
+        }
+
+        public string DeviceMediaToolTip =>
+            "Lista completa de papeles del plotter seleccionado (igual que el cuadro Imprimir de AutoCAD).";
+
+        public IReadOnlyList<ChoiceItem<PdfPlotArea>> PlotAreaChoices { get; } = ChoiceItem.List(
+            ChoiceItem.Of(PdfPlotArea.Extents, "Extents"),
+            ChoiceItem.Of(PdfPlotArea.Window, "Window"),
+            ChoiceItem.Of(PdfPlotArea.Display, "Display"),
+            ChoiceItem.Of(PdfPlotArea.Layout, "Layout"));
+
+        private PdfPlotArea _plotArea = PdfPlotArea.Extents;
+        public PdfPlotArea PlotArea
+        {
+            get => _plotArea;
+            set => Set(ref _plotArea, value);
+        }
+
+        public string PlotAreaToolTip =>
+            "Extents (recomendado). Window requiere ventana ya definida en cada layout.";
+
+        private bool _forcePlotPreset = true;
+        public bool ForcePlotPreset
+        {
+            get => _forcePlotPreset;
+            set
+            {
+                if (Set(ref _forcePlotPreset, value))
+                {
+                    Raise(nameof(ShowManualScaleOptions));
+                    Raise(nameof(ShowCustomScaleFields));
+                }
+            }
+        }
+
+        public bool ShowManualScaleOptions => !ForcePlotPreset;
+
+        public string ForcePlotPresetToolTip => "Preset GVR: escala 1:1, centrado, sin ajustar a la página.";
+
+        private bool _fitToPaper;
+        public bool FitToPaper
+        {
+            get => _fitToPaper;
+            set
+            {
+                if (Set(ref _fitToPaper, value))
+                    Raise(nameof(ShowCustomScaleFields));
+            }
+        }
+
+        private bool _centerPlot = true;
+        public bool CenterPlot
+        {
+            get => _centerPlot;
+            set => Set(ref _centerPlot, value);
+        }
+
+        private bool _useCustomScale;
+        public bool UseCustomScale
+        {
+            get => _useCustomScale;
+            set
+            {
+                if (Set(ref _useCustomScale, value))
+                    Raise(nameof(ShowCustomScaleFields));
+            }
+        }
+
+        public bool ShowCustomScaleFields => !ForcePlotPreset && !FitToPaper && UseCustomScale;
+
+        private double _customScaleNumerator = 1.0;
+        public double CustomScaleNumerator
+        {
+            get => _customScaleNumerator;
+            set => Set(ref _customScaleNumerator, value);
+        }
+
+        private double _customScaleDenominator = 1.0;
+        public double CustomScaleDenominator
+        {
+            get => _customScaleDenominator;
+            set => Set(ref _customScaleDenominator, value);
+        }
+
+        private bool _scaleLineweights;
+        public bool ScaleLineweights
+        {
+            get => _scaleLineweights;
+            set => Set(ref _scaleLineweights, value);
+        }
+
+        public IReadOnlyList<ChoiceItem<PdfPlotOrientation>> OrientationChoices { get; } = ChoiceItem.List(
+            ChoiceItem.Of(PdfPlotOrientation.Landscape, "Horizontal"),
+            ChoiceItem.Of(PdfPlotOrientation.Portrait, "Vertical"));
+
+        private PdfPlotOrientation _plotOrientation = PdfPlotOrientation.Landscape;
+        public PdfPlotOrientation PlotOrientation
+        {
+            get => _plotOrientation;
+            set => Set(ref _plotOrientation, value);
+        }
+
+        public string OrientationToolTip =>
+            "Orientación del dibujo en el papel (Horizontal = 0°, Vertical = 90°).";
+
         public ObservableCollection<string> PlotStyleTables { get; } = new ObservableCollection<string>();
 
         private string _selectedPlotStyleTable = PlotStyleTableRepository.KeepLayoutTableLabel;
@@ -204,12 +345,12 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             set => Set(ref _selectedPlotStyleTable, value ?? PlotStyleTableRepository.KeepLayoutTableLabel);
         }
 
-        public string PlotStyleHelpText =>
-            "La tabla CTB/STB controla colores y grosores. Sin ella el PDF sale con colores crudos.";
+        public string PlotStyleToolTip =>
+            "Tabla de estilos (.ctb/.stb). Cada empresa usa la suya; impórtala si falta en este PC.";
 
         public string MissingPlotDeviceWarning =>
             PlotDevices.Count == 0
-                ? "No hay dispositivos PDF (.pc3) instalados. Instala o registra un plotter PDF en AutoCAD."
+                ? "No hay dispositivos PDF (.pc3) instalados."
                 : string.IsNullOrWhiteSpace(PlotDeviceName)
                     ? "Selecciona un dispositivo de trazado PDF."
                     : !PlotDevices.Contains(PlotDeviceName)
@@ -218,13 +359,39 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public bool HasMissingPlotDevice => !string.IsNullOrEmpty(MissingPlotDeviceWarning);
 
+        private bool _plotTransparency = true;
+        public bool PlotTransparency
+        {
+            get => _plotTransparency;
+            set => Set(ref _plotTransparency, value);
+        }
+
+        private bool _plotObjectLineweights = true;
+        public bool PlotObjectLineweights
+        {
+            get => _plotObjectLineweights;
+            set => Set(ref _plotObjectLineweights, value);
+        }
+
+        private bool _plotWithPlotStyles = true;
+        public bool PlotWithPlotStyles
+        {
+            get => _plotWithPlotStyles;
+            set => Set(ref _plotWithPlotStyles, value);
+        }
+
+        private bool _plotPaperspaceLast = true;
+        public bool PlotPaperspaceLast
+        {
+            get => _plotPaperspaceLast;
+            set => Set(ref _plotPaperspaceLast, value);
+        }
+
         private void LoadPlotStyleTables()
         {
             PlotStyleTableRepository.Refresh();
-
             PlotStyleTables.Clear();
             PlotStyleTables.Add(PlotStyleTableRepository.KeepLayoutTableLabel);
-
             foreach (string table in PlotStyleTableRepository.GetAvailableTables())
                 PlotStyleTables.Add(table);
         }
@@ -232,11 +399,58 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         private void LoadPlotDevices()
         {
             PlotDeviceRepository.Refresh();
-
             PlotDevices.Clear();
             foreach (string device in PlotDeviceRepository.GetAvailablePdfDevices())
                 PlotDevices.Add(device);
+
+            ReloadDeviceMediaNames();
         }
+
+        private void ReloadDeviceMediaNames()
+        {
+            string previous = SelectedDeviceMediaName;
+            DeviceMediaNames.Clear();
+
+            if (string.IsNullOrWhiteSpace(PlotDeviceName))
+            {
+                SelectedDeviceMediaName = string.Empty;
+                return;
+            }
+
+            foreach (string media in PlotDeviceRepository.GetCanonicalMediaNames(PlotDeviceName))
+                DeviceMediaNames.Add(media);
+
+            if (!string.IsNullOrWhiteSpace(previous) && DeviceMediaNames.Contains(previous))
+                SelectedDeviceMediaName = previous;
+            else if (DeviceMediaNames.Count > 0)
+                SelectedDeviceMediaName = DeviceMediaNames[0];
+            else
+                SelectedDeviceMediaName = string.Empty;
+        }
+
+        private PdfExportSettings BuildPdfSettings() => new PdfExportSettings
+        {
+            ForcePlotDevice = true,
+            PlotDeviceName = PlotDeviceName,
+            PaperMode = PaperMode,
+            IsoFullBleedSize = SelectedIsoSize,
+            SelectedCanonicalMediaName = SelectedDeviceMediaName,
+            PlotArea = PlotArea,
+            ForcePlotPreset = ForcePlotPreset,
+            FitToPaper = FitToPaper,
+            CenterPlot = CenterPlot,
+            UseCustomScale = UseCustomScale,
+            CustomScaleNumerator = CustomScaleNumerator,
+            CustomScaleDenominator = CustomScaleDenominator,
+            ScaleLineweights = ScaleLineweights,
+            PlotOrientation = PlotOrientation,
+            PlotTransparency = PlotTransparency,
+            PlotObjectLineweights = PlotObjectLineweights,
+            PlotWithPlotStyles = PlotWithPlotStyles,
+            PlotPaperspaceLast = PlotPaperspaceLast,
+            CombineIntoSinglePdf = false,
+            PlotStyleTableOverride = ResolvePlotStyleOverride()
+        };
 
         /// <summary>
         /// Lets the user point at a .ctb/.stb that ships with the project instead of one already
@@ -378,9 +592,37 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public RelayCommand ImportPlotStyleCommand { get; }
 
+        public RelayCommand InstallHqPlotterCommand { get; }
+
         public RelayCommand ExportCommand { get; }
 
         public RelayCommand CancelCommand { get; }
+
+        private void InstallHqPlotter()
+        {
+            try
+            {
+                string installed = PlotDeviceRepository.InstallBundledHqPlotter(overwriteExisting: true);
+                LoadPlotDevices();
+
+                foreach (string device in PlotDevices)
+                {
+                    if (string.Equals(device, installed, StringComparison.OrdinalIgnoreCase))
+                    {
+                        PlotDeviceName = device;
+                        break;
+                    }
+                }
+
+                _dialogs.ShowInfo(DialogTitle,
+                    $"Se instaló \"{installed}\" en la carpeta de plotters y quedó seleccionado.");
+            }
+            catch (Exception ex)
+            {
+                _log.Error("No se pudo instalar el plotter HQ.", ex);
+                _dialogs.ShowError(DialogTitle, ex.Message);
+            }
+        }
 
         private void StartExport()
         {
@@ -396,17 +638,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 string destination = ExportPathHelper.AllocateUniqueDirectoryPath(desired);
                 ExportPathHelper.TryEnsureWritable(destination, out _);
 
-                var settings = new PdfExportSettings
-                {
-                    ForcePlotDevice = true,
-                    ForcePlotPreset = true,
-                    PlotDeviceName = PlotDeviceName,
-                    PlotTransparency = PlotTransparency,
-                    CombineIntoSinglePdf = false,
-                    PlotStyleTableOverride = ResolvePlotStyleOverride()
-                };
-
-                return new ExportRequest(document.Database, destination, NamingPattern, settings, drawing, _log, document);
+                return new ExportRequest(document.Database, destination, NamingPattern, BuildPdfSettings(), drawing, _log, document);
             }
 
             Results.Clear();
@@ -522,13 +754,45 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             OutputFolder = preferences.OutputFolder;
             NamingPattern = string.IsNullOrWhiteSpace(preferences.NamingPattern) ? NamingPattern : preferences.NamingPattern;
             OpenFolderWhenDone = preferences.OpenFolderWhenDone;
+            PaperMode = Enum.IsDefined(typeof(PdfPaperMode), preferences.PdfPaperMode)
+                ? (PdfPaperMode)preferences.PdfPaperMode
+                : PdfPaperMode.ForceIsoFullBleed;
+            SelectedIsoSize = Enum.IsDefined(typeof(IsoFullBleedSize), preferences.PdfIsoFullBleedSize)
+                ? (IsoFullBleedSize)preferences.PdfIsoFullBleedSize
+                : IsoFullBleedSize.A4;
+            PlotArea = Enum.IsDefined(typeof(PdfPlotArea), preferences.PdfPlotArea)
+                ? (PdfPlotArea)preferences.PdfPlotArea
+                : PdfPlotArea.Extents;
+            ForcePlotPreset = preferences.PdfForcePlotPreset;
+            FitToPaper = preferences.PdfFitToPaper;
+            CenterPlot = preferences.PdfCenterPlot;
+            UseCustomScale = preferences.PdfUseCustomScale;
+            CustomScaleNumerator = preferences.PdfCustomScaleNumerator > 0
+                ? preferences.PdfCustomScaleNumerator
+                : 1.0;
+            CustomScaleDenominator = preferences.PdfCustomScaleDenominator > 0
+                ? preferences.PdfCustomScaleDenominator
+                : 1.0;
+            ScaleLineweights = preferences.PdfScaleLineweights;
+            PlotOrientation = Enum.IsDefined(typeof(PdfPlotOrientation), preferences.PdfPlotOrientation)
+                ? (PdfPlotOrientation)preferences.PdfPlotOrientation
+                : PdfPlotOrientation.Landscape;
             PlotTransparency = preferences.PdfPlotTransparency;
+            PlotObjectLineweights = preferences.PdfPlotObjectLineweights;
+            PlotWithPlotStyles = preferences.PdfPlotWithPlotStyles;
+            PlotPaperspaceLast = preferences.PdfPlotPaperspaceLast;
 
             string preferredDevice = preferences.PdfPlotDeviceName;
             if (!string.IsNullOrWhiteSpace(preferredDevice) && PlotDevices.Contains(preferredDevice))
                 PlotDeviceName = preferredDevice;
             else
                 PlotDeviceName = PlotDeviceRepository.ResolveDefaultDevice();
+
+            if (!string.IsNullOrWhiteSpace(preferences.PdfSelectedMediaName) &&
+                DeviceMediaNames.Contains(preferences.PdfSelectedMediaName))
+            {
+                SelectedDeviceMediaName = preferences.PdfSelectedMediaName;
+            }
 
             SelectedPlotStyleTable = !string.IsNullOrEmpty(preferences.PdfPlotStyleTable) &&
                                      PlotStyleTables.Contains(preferences.PdfPlotStyleTable)
@@ -546,7 +810,22 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                 NamingPattern = NamingPattern,
                 OpenFolderWhenDone = OpenFolderWhenDone,
                 PdfPlotDeviceName = PlotDeviceName,
+                PdfPaperMode = (int)PaperMode,
+                PdfIsoFullBleedSize = (int)SelectedIsoSize,
+                PdfSelectedMediaName = SelectedDeviceMediaName,
+                PdfPlotArea = (int)PlotArea,
+                PdfForcePlotPreset = ForcePlotPreset,
+                PdfFitToPaper = FitToPaper,
+                PdfCenterPlot = CenterPlot,
+                PdfUseCustomScale = UseCustomScale,
+                PdfCustomScaleNumerator = CustomScaleNumerator,
+                PdfCustomScaleDenominator = CustomScaleDenominator,
+                PdfScaleLineweights = ScaleLineweights,
+                PdfPlotOrientation = (int)PlotOrientation,
                 PdfPlotTransparency = PlotTransparency,
+                PdfPlotObjectLineweights = PlotObjectLineweights,
+                PdfPlotWithPlotStyles = PlotWithPlotStyles,
+                PdfPlotPaperspaceLast = PlotPaperspaceLast,
                 PdfPlotStyleTable = ResolvePlotStyleOverride()
             });
         }
