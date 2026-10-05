@@ -32,6 +32,46 @@ namespace GvrTools.Core.IO
         }
 
         /// <summary>
+        /// Paper for a layout on a device that may not have the layout's exact media, in order:
+        /// the same media; one with the same physical size (another device's name for A1, either
+        /// orientation); the device's own default (sensible for printers and pixel devices);
+        /// then the common-size heuristics of <see cref="Resolve(string,IList{string})"/>.
+        /// </summary>
+        public static string Resolve(string desiredMedia, IList<string> mediaList, string deviceDefaultMedia)
+        {
+            if (mediaList == null || mediaList.Count == 0) return null;
+
+            return FindExact(desiredMedia, mediaList)
+                ?? FindSameSize(desiredMedia, mediaList)
+                ?? FindExact(deviceDefaultMedia, mediaList)
+                ?? Resolve(desiredMedia, mediaList);
+        }
+
+        /// <summary>
+        /// A media of the same physical size as <paramref name="desiredMedia"/> (± tolerance, in
+        /// millimetres), preferring the same orientation. Null when sizes are unknown or none match.
+        /// </summary>
+        public static string FindSameSize(string desiredMedia, IList<string> mediaList, double toleranceMm = 1.0)
+        {
+            if (mediaList == null || !PlotMediaNames.TryGetSizeInMillimeters(desiredMedia, out double width, out double height))
+                return null;
+
+            string rotated = null;
+            foreach (string media in mediaList)
+            {
+                if (!PlotMediaNames.TryGetSizeInMillimeters(media, out double w, out double h)) continue;
+
+                if (Math.Abs(w - width) <= toleranceMm && Math.Abs(h - height) <= toleranceMm)
+                    return media;
+
+                if (rotated == null && Math.Abs(w - height) <= toleranceMm && Math.Abs(h - width) <= toleranceMm)
+                    rotated = media;
+            }
+
+            return rotated;
+        }
+
+        /// <summary>
         /// Returns <paramref name="desiredMedia"/> when it appears in <paramref name="mediaList"/>
         /// (ordinal-ignore-case); otherwise the first preferred common size found, else the first
         /// entry. Returns null when the list is empty.

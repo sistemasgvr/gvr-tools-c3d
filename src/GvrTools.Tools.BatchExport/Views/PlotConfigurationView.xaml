@@ -1,0 +1,334 @@
+<UserControl x:Class="GvrTools.Tools.BatchExport.Views.PlotConfigurationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Panel "Trazado": misma distribución que el cuadro Trazar de Civil 3D. DataContext = PlotConfigurationViewModel. -->
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/GvrTools.UI;component/Theme/GvrTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style TargetType="GroupBox" BasedOn="{StaticResource Gvr.GroupBox}"/>
+
+            <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource Gvr.Text.Label}">
+                <Setter Property="Margin" Value="0,0,8,4"/>
+            </Style>
+
+            <Style x:Key="FieldValue" TargetType="TextBlock">
+                <Setter Property="Margin" Value="0,0,0,4"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+                <Setter Property="Foreground" Value="{StaticResource Gvr.Brush.Ink}"/>
+            </Style>
+
+            <Style x:Key="OptionCheck" TargetType="CheckBox">
+                <Setter Property="Margin" Value="0,0,0,4"/>
+            </Style>
+
+            <!-- Papel agrupado: "Opciones GVR" arriba, tamaños del dispositivo debajo. -->
+            <CollectionViewSource x:Key="PaperView" Source="{Binding PaperChoices}">
+                <CollectionViewSource.GroupDescriptions>
+                    <PropertyGroupDescription PropertyName="Group"/>
+                </CollectionViewSource.GroupDescriptions>
+            </CollectionViewSource>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ============================================================ columna izquierda -->
+        <StackPanel Grid.Row="0" Grid.Column="0">
+
+            <GroupBox Header="Configuración de página">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Left" Text="Nombre:" Width="80" Style="{StaticResource FieldLabel}" Margin="0,0,8,0"/>
+                        <Button DockPanel.Dock="Right" Content="Preset GVR" Command="{Binding ApplyGvrPresetCommand}" Margin="6,0,0,0" Padding="8,2"
+                                ToolTip="Vuelve a la configuración recomendada por GVR: DWG To PDF, ISO full bleed A4, Extensión, 1:1, centrado, plumas y grosores activados."/>
+                        <Button DockPanel.Dock="Right" Content="Importar..." Command="{Binding ImportPageSetupsCommand}" Margin="8,0,0,0" Padding="8,2"
+                                ToolTip="Trae las configuraciones de página de una plantilla (.dwt) o de otro dibujo (.dwg), como 'Importar' del Administrador de configuraciones de página."/>
+                        <ComboBox ItemsSource="{Binding PageSetupChoices}" SelectedItem="{Binding SelectedPageSetup}"
+                                  DisplayMemberPath="Label" ToolTip="{Binding PageSetupToolTip}"/>
+                    </DockPanel>
+                    <TextBlock Text="Cada presentación se traza con su propia configuración de página. Solo se aplican la tabla de estilos, 'Trazar en archivo' y el número de copias."
+                               Style="{StaticResource Gvr.Text.Subtle}" Margin="88,6,0,0"
+                               Visibility="{Binding IsLayoutOwn, Converter={StaticResource Gvr.BoolToVisibility}}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Impresora/trazador">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Nombre:" Style="{StaticResource FieldLabel}"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                              IsEnabled="{Binding IsManual}" ToolTip="{Binding PlotDeviceToolTip}" Margin="0,0,0,6">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding KindLabel}" FontSize="10" Margin="10,0,0,0"
+                                               VerticalAlignment="Center" Foreground="{StaticResource Gvr.Brush.Muted}"/>
+                                    <TextBlock Text="{Binding Name}"/>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Trazador:" Style="{StaticResource FieldLabel}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceDriver}" Style="{StaticResource FieldValue}"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Lugar:" Style="{StaticResource FieldLabel}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DeviceLocation}" Style="{StaticResource FieldValue}"/>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Descripción:" Style="{StaticResource FieldLabel}"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DeviceDescription}" Style="{StaticResource FieldValue}"/>
+
+                    <DockPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,4,0,0" LastChildFill="False">
+                        <CheckBox DockPanel.Dock="Left" Content="Trazar en archivo" IsChecked="{Binding PlotToFile}"
+                                  IsEnabled="{Binding CanPlotToFileEdit}" VerticalAlignment="Center"
+                                  ToolTip="Solo para impresoras de Windows: guarda un .plt en lugar de imprimir. Los .pc3 de PDF, DWF o PNG siempre generan archivo."/>
+                        <Button DockPanel.Dock="Right" Content="Instalar HQ..." Command="{Binding InstallHqPlotterCommand}" Margin="6,0,0,0" Padding="8,2"
+                                ToolTip="Copia el plotter PDF de alta calidad (DPI alto) incluido con GVR Tools y lo selecciona."/>
+                        <Button DockPanel.Dock="Right" Content="Trazadores..." Command="{Binding OpenPlottersFolderCommand}" Margin="6,0,0,0" Padding="8,2"
+                                ToolTip="Abre la carpeta de trazadores (.pc3), igual que el comando TRAZADORES. Desde ahí se editan sus propiedades."/>
+                        <Button DockPanel.Dock="Right" Content="Actualizar" Command="{Binding RefreshDevicesCommand}" Padding="8,2"
+                                ToolTip="Vuelve a leer impresoras y .pc3 (por ejemplo, tras instalar uno nuevo)."/>
+                    </DockPanel>
+
+                    <TextBlock Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding DeviceWarning}" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{StaticResource Gvr.Brush.Danger}"
+                               Visibility="{Binding HasDeviceWarning, Converter={StaticResource Gvr.BoolToVisibility}}"/>
+                </Grid>
+            </GroupBox>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="140"/>
+                </Grid.ColumnDefinitions>
+
+                <GroupBox Grid.Column="0" Header="Tamaño de papel" IsEnabled="{Binding IsManual}">
+                    <ComboBox ItemsSource="{Binding Source={StaticResource PaperView}}" SelectedItem="{Binding SelectedPaper}"
+                              DisplayMemberPath="Label" ToolTip="{Binding PaperToolTip}">
+                        <ComboBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="4,6,0,2"
+                                                   Foreground="{StaticResource Gvr.Brush.Muted}"/>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ComboBox.GroupStyle>
+                    </ComboBox>
+                </GroupBox>
+
+                <GroupBox Grid.Column="2" Header="Número de copias" IsEnabled="{Binding CanSetCopies}">
+                    <TextBox Text="{Binding Copies}" HorizontalContentAlignment="Right"
+                             ToolTip="Copias por presentación al imprimir. Al trazar en archivo siempre es 1."/>
+                </GroupBox>
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <GroupBox Grid.Column="0" Header="Área de trazado" IsEnabled="{Binding IsManual}">
+                    <StackPanel>
+                        <TextBlock Text="Trazado de:" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding PlotAreaChoices}" SelectedValue="{Binding PlotArea}"
+                                  DisplayMemberPath="Label" SelectedValuePath="Value" ToolTip="{Binding PlotAreaToolTip}"/>
+
+                        <StackPanel Margin="0,8,0,0" Visibility="{Binding IsWindowArea, Converter={StaticResource Gvr.BoolToVisibility}}">
+                            <RadioButton Content="Ventana guardada en cada presentación" IsChecked="{Binding UseLayoutWindow}" Margin="0,0,0,4"/>
+                            <RadioButton Content="Ventana común para todas" IsChecked="{Binding UseCommonWindow}" Margin="0,0,0,4"/>
+                            <Grid IsEnabled="{Binding UseCommonWindow}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="X1" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding WindowMinX}" Margin="0,0,8,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Y1" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding WindowMinY}" Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="X2" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding WindowMaxX}" Margin="0,0,8,4"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Y2" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding WindowMaxY}" Margin="0,0,0,4"/>
+                                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="4" Content="Designar ventana &lt;"
+                                        Command="{Binding PickWindowCommand}" HorizontalAlignment="Left" Padding="8,2"
+                                        Visibility="{Binding PickWindowAvailable, Converter={StaticResource Gvr.BoolToVisibility}}"
+                                        ToolTip="Designa las dos esquinas en el espacio papel de la primera presentación seleccionada; se aplica a todas."/>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Grid.Column="2" Header="Escala de trazado" IsEnabled="{Binding IsManual}">
+                    <StackPanel>
+                        <CheckBox Content="Escala hasta ajustar" IsChecked="{Binding FitToPaper}" Style="{StaticResource OptionCheck}"
+                                  ToolTip="Ajusta el dibujo al papel (Fit to paper)."/>
+                        <TextBlock Text="Escala:" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox ItemsSource="{Binding ScaleChoices}" SelectedItem="{Binding SelectedScale}" DisplayMemberPath="Label"
+                                  IsEnabled="{Binding CanChooseScale}" Margin="0,0,0,6"
+                                  ToolTip="La lista de escalas del dibujo (EDITARLISTAESC), como en el cuadro Trazar."/>
+                        <Grid IsEnabled="{Binding CanEditScaleValues}" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBox Grid.Row="0" Grid.Column="0" Text="{Binding ScalePaperUnits}" Margin="0,0,6,4" HorizontalContentAlignment="Right"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding PaperUnitChoices}" SelectedValue="{Binding PaperUnits}"
+                                      DisplayMemberPath="Label" SelectedValuePath="Value" MinWidth="80" Margin="0,0,6,4"
+                                      Visibility="{Binding IsRasterDevice, Converter={StaticResource Gvr.InverseBoolToVisibility}}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="píxeles" VerticalAlignment="Center" Margin="0,0,6,4"
+                                       Visibility="{Binding IsRasterDevice, Converter={StaticResource Gvr.BoolToVisibility}}"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="=" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                            <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding ScaleDrawingUnits}" Margin="0,0,6,0" HorizontalContentAlignment="Right"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="unidades" VerticalAlignment="Center"/>
+                        </Grid>
+                        <CheckBox Content="Ajustar escala del grosor de línea" IsChecked="{Binding ScaleLineweights}"
+                                  ToolTip="Escala los grosores de línea en proporción a la escala de trazado."/>
+                    </StackPanel>
+                </GroupBox>
+            </Grid>
+
+            <GroupBox Header="Desfase de trazado (origen establecido en área de impresión)" IsEnabled="{Binding IsManual}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="110"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="X:" Style="{StaticResource FieldLabel}" Margin="0,0,6,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding OffsetX}" IsEnabled="{Binding CanEditOffset}" HorizontalContentAlignment="Right"/>
+                    <TextBlock Grid.Column="2" Text="{Binding PaperUnitsLabel}" VerticalAlignment="Center" Margin="6,0,16,0"/>
+                    <TextBlock Grid.Column="3" Text="Y:" Style="{StaticResource FieldLabel}" Margin="0,0,6,0"/>
+                    <TextBox Grid.Column="4" Text="{Binding OffsetY}" IsEnabled="{Binding CanEditOffset}" HorizontalContentAlignment="Right"/>
+                    <TextBlock Grid.Column="5" Text="{Binding PaperUnitsLabel}" VerticalAlignment="Center" Margin="6,0,16,0"/>
+                    <CheckBox Grid.Column="6" Content="Centrar trazado" IsChecked="{Binding CenterPlot}" IsEnabled="{Binding CanCenter}"
+                              VerticalAlignment="Center"
+                              ToolTip="Con el área 'Presentación' AutoCAD no permite centrar: el trazado sale desde el origen de la hoja."/>
+                </Grid>
+            </GroupBox>
+        </StackPanel>
+
+        <!-- ============================================================ columna derecha -->
+        <StackPanel Grid.Row="0" Grid.Column="2">
+
+            <GroupBox Header="Tabla estilos trazado (asignación plumillas)">
+                <StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding ImportPlotStyleCommand}"
+                                Margin="6,0,0,0" Padding="8,2" ToolTip="{Binding PlotStyleToolTip}"/>
+                        <ComboBox ItemsSource="{Binding PlotStyleTables}" SelectedItem="{Binding SelectedPlotStyleTable}"
+                                  ToolTip="{Binding PlotStyleToolTip}"/>
+                    </DockPanel>
+                    <TextBlock Text="{Binding MissingPlotStyleWarning}" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{StaticResource Gvr.Brush.Danger}"
+                               Visibility="{Binding HasMissingPlotStyle, Converter={StaticResource Gvr.BoolToVisibility}}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Opciones de ventana sombreada" IsEnabled="{Binding IsManual}" ToolTip="{Binding ShadeToolTip}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Trazado sombreado" TextWrapping="Wrap" Style="{StaticResource FieldLabel}"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" IsEnabled="False" SelectedIndex="0" Margin="0,0,0,6">
+                        <ComboBoxItem Content="Como se muestra"/>
+                    </ComboBox>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Calidad" Style="{StaticResource FieldLabel}"/>
+                    <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding ShadeQualityChoices}" SelectedValue="{Binding ShadeQuality}"
+                              DisplayMemberPath="Label" SelectedValuePath="Value" Margin="0,0,0,6"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="PPP" Style="{StaticResource FieldLabel}"/>
+                    <DockPanel Grid.Row="2" Grid.Column="1">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding ShadeDpiHint}" Margin="6,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Gvr.Brush.Muted}"/>
+                        <TextBox Text="{Binding ShadeCustomDpi}" IsEnabled="{Binding IsCustomShadeDpi}" HorizontalContentAlignment="Right"/>
+                    </DockPanel>
+                </Grid>
+            </GroupBox>
+
+            <GroupBox Header="Opciones de trazado" IsEnabled="{Binding IsManual}">
+                <StackPanel>
+                    <CheckBox Content="Trazar grosor de línea" IsChecked="{Binding PlotObjectLineweights}"
+                              IsEnabled="{Binding CanEditLineweights}" Style="{StaticResource OptionCheck}"
+                              ToolTip="Con 'Trazar con estilos de trazado' activo, los grosores siempre se trazan (como en Civil 3D)."/>
+                    <CheckBox Content="Trazar transparencia" IsChecked="{Binding PlotTransparency}" Style="{StaticResource OptionCheck}"/>
+                    <CheckBox Content="Trazar con estilos de trazado" IsChecked="{Binding PlotWithPlotStyles}" Style="{StaticResource OptionCheck}"
+                              ToolTip="Aplica la tabla de estilos (CTB/STB) seleccionada arriba."/>
+                    <CheckBox Content="Trazar espacio papel lo último" IsChecked="{Binding PlotPaperspaceLast}" Style="{StaticResource OptionCheck}"/>
+                    <CheckBox Content="Ocultar objetos del espacio papel" IsChecked="{Binding HidePaperspaceObjects}" Style="{StaticResource OptionCheck}"/>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="Orientación de dibujo" IsEnabled="{Binding IsManual}" ToolTip="{Binding OrientationToolTip}">
+                <StackPanel>
+                    <RadioButton Content="Según cada presentación" IsChecked="{Binding IsFromLayoutOrientation}" Margin="0,0,0,4"
+                                 ToolTip="Cada layout conserva su propia orientación (y su giro de 180°). Recomendado para lotes con hojas verticales y apaisadas."/>
+                    <RadioButton Content="Vertical" IsChecked="{Binding IsPortrait}" Margin="0,0,0,4"/>
+                    <RadioButton Content="Horizontal" IsChecked="{Binding IsLandscape}" Margin="0,0,0,4"/>
+                    <CheckBox Content="Trazar girado 180 grados" IsChecked="{Binding PlotUpsideDown}" IsEnabled="{Binding CanPlotUpsideDown}"/>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+
+        <!-- ============================================================ estado -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
+            <Border BorderBrush="{StaticResource Gvr.Brush.Gold}" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8"
+                    Visibility="{Binding HasClipWarning, Converter={StaticResource Gvr.BoolToVisibility}}">
+                <TextBlock Text="{Binding ClipWarning}" TextWrapping="Wrap" Foreground="{StaticResource Gvr.Brush.Ink}"/>
+            </Border>
+            <TextBlock Text="{Binding OutputSummary}" Style="{StaticResource Gvr.Text.Subtle}"/>
+            <TextBlock Text="{Binding ValidationError}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Foreground="{StaticResource Gvr.Brush.Danger}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -35,6 +35,18 @@
     <C3DVersion Condition="'$(C3DVersion)' == ''">2021</C3DVersion>
   </PropertyGroup>
 
+  <!-- One obj\ per Civil 3D release. 2021-2024 share net48 (and 2025-2026 share net8.0-windows) but
+       reference different AutoCAD.NET packages and define different C3Dxxxx symbols; with a shared
+       obj\ the WPF markup pass of one release reused another's intermediates and failed with
+       "no se encontró ... .g.cs / .baml" whenever releases were built back to back (pack-release).
+       Must be set here, before Microsoft.Common.props assigns its default. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj\C3D$(C3DVersion)\</BaseIntermediateOutputPath>
+    <!-- The SDK only excludes the CURRENT obj folder from its **/*.cs glob; the other releases'
+         folders (and the pre-split obj\Debug\...) hold generated .cs files that must not compile. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj\**</DefaultItemExcludes>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- Civil 3D 2021-2024 run on .NET Framework 4.8; 2025-2026 moved their host to .NET 8;
          2027 moved again to .NET 10. -->

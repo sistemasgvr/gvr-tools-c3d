@@ -66,7 +66,7 @@ namespace GvrTools.Civil3D.Export
             _results = new List<BatchItemResult>(dwgPaths.Count);
         }
 
-        public string Name => "Exportación masiva de dibujos a PDF";
+        public string Name => "Trazado masivo de dibujos";
 
         public int StepCount => _dwgPaths.Count;
 
@@ -139,7 +139,7 @@ namespace GvrTools.Civil3D.Export
 
                 WaitUntilPlotEngineIsFree();
 
-                using (IExportSession session = _engine.BeginSession(request, layouts.Count))
+                using (IExportSession session = _engine.BeginSession(request, layouts))
                 {
                     int failedCount = 0;
                     foreach (LayoutSnapshot layout in layouts)
@@ -151,9 +151,12 @@ namespace GvrTools.Civil3D.Export
                     if (failedCount < layouts.Count)
                         _anyDrawingExported = true;
 
-                    return failedCount == 0
+                    if (failedCount > 0)
+                        return BatchItemResult.Failure(label, $"{failedCount} de {layouts.Count} presentación(es) fallaron.");
+
+                    return request.WritesFiles
                         ? BatchItemResult.Success(label, request.DestinationFolder)
-                        : BatchItemResult.Failure(label, $"{failedCount} de {layouts.Count} presentación(es) fallaron.");
+                        : BatchItemResult.SuccessWithoutFile(label, $"{layouts.Count} presentación(es) enviadas a la impresora");
                 }
             }
             catch (ExportSetupException ex) when (_anyDrawingExported)

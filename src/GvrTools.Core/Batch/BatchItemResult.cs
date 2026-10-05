@@ -33,6 +33,10 @@ namespace GvrTools.Core.Batch
         public static BatchItemResult Success(string label, string outputPath) =>
             new BatchItemResult(label, BatchItemStatus.Succeeded, outputPath, null);
 
+        /// <summary>A success that wrote no file (e.g. a sheet sent to a printer); <paramref name="message"/> says where it went.</summary>
+        public static BatchItemResult SuccessWithoutFile(string label, string message) =>
+            new BatchItemResult(label, BatchItemStatus.Succeeded, null, message);
+
         public static BatchItemResult Failure(string label, string message) =>
             new BatchItemResult(label, BatchItemStatus.Failed, null, message);
 

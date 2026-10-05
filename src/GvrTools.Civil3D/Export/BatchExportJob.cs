@@ -43,7 +43,7 @@ namespace GvrTools.Civil3D.Export
             _results = new List<BatchItemResult>(layouts.Count);
         }
 
-        public string Name => $"Exportación {ExportFormatInfo.Label(_engine.Format)}";
+        public string Name => "Trazado masivo de presentaciones";
 
         public int StepCount => _layouts.Count;
 
@@ -52,10 +52,11 @@ namespace GvrTools.Civil3D.Export
             _stopwatch.Restart();
             CreateDestinationFolder();
 
-            _request.Log.Info($"{Name}: {_layouts.Count} presentación(es) hacia '{_request.DestinationFolder}' " +
+            string target = _request.WritesFiles ? $"'{_request.DestinationFolder}'" : "la impresora";
+            _request.Log.Info($"{Name}: {_layouts.Count} presentación(es) hacia {target} " +
                               $"({_engine.StrategyDescription}).");
 
-            _session = _engine.BeginSession(_request, _layouts.Count);
+            _session = _engine.BeginSession(_request, _layouts);
         }
 
         public void ExecuteStep(int stepIndex)
@@ -116,6 +117,9 @@ namespace GvrTools.Civil3D.Export
 
         private void CreateDestinationFolder()
         {
+            // Solo impresora: no hay archivos que escribir ni carpeta que crear.
+            if (!_request.WritesFiles) return;
+
             if (ExportPathHelper.TryEnsureWritable(_request.DestinationFolder, out string error))
                 return;
 

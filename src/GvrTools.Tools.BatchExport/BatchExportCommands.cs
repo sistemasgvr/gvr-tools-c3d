@@ -33,7 +33,7 @@ namespace GvrTools.Tools.BatchExport
     {
         public const string CommandName = "GVRBATCHEXPORT";
 
-        private const string DialogTitle = "GVR Tools - Exportación masiva";
+        private const string DialogTitle = "GVR Tools - Trazado masivo";
 
         private static BatchExportWindow _openWindow;
         private static CivilJobScheduler _scheduler;
@@ -87,7 +87,7 @@ namespace GvrTools.Tools.BatchExport
             }
             catch (SysException ex)
             {
-                log.Error("No se pudo abrir la ventana de exportación masiva.", ex);
+                log.Error("No se pudo abrir la ventana de trazado masivo.", ex);
                 ReleaseWindow();
                 editor?.WriteMessage("\nGVR Tools: " + ex.Message);
             }

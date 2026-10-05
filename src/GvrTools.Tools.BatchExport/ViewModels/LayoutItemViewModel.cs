@@ -1,6 +1,7 @@
 using System;
 using GvrTools.Civil3D.Export;
 using GvrTools.Civil3D.Model;
+using GvrTools.Core.IO;
 using GvrTools.UI.Mvvm;
 
 namespace GvrTools.Tools.BatchExport.ViewModels
@@ -19,6 +20,14 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public string PageSetupName => Layout.PageSetupName;
 
+        /// <summary>Device of the layout's own page setup ("Ninguno" when it has none).</summary>
+        public string PlotDeviceLabel => PlotDeviceRepository.IsNoneDevice(Layout.PlotDeviceName)
+            ? "Ninguno"
+            : Layout.PlotDeviceName;
+
+        /// <summary>Paper of the layout's own page setup, readable.</summary>
+        public string PaperLabel => PlotMediaNames.Humanize(Layout.CanonicalMediaName);
+
         /// <summary>
         /// Plot style table of the layout, flagged the way AutoCAD's own Plot dialog does when the
         /// table it names is not installed on this machine.
@@ -34,7 +43,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             }
         }
 
-        private bool _isSelected = true;
+        // Sin marcar al abrir: el primer paso del flujo es elegir qué se traza.
+        private bool _isSelected;
         public bool IsSelected
         {
             get => _isSelected;

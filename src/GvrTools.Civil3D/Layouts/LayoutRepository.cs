@@ -35,7 +35,9 @@ namespace GvrTools.Civil3D.Layouts
                         layout.LayoutName,
                         layout.TabOrder,
                         SafePageSetupName(layout),
-                        SafePlotStyleTable(layout)));
+                        SafePlotStyleTable(layout),
+                        SafeRead(() => layout.PlotConfigurationName),
+                        SafeRead(() => layout.CanonicalMediaName)));
                 }
 
                 tr.Commit();
@@ -72,6 +74,18 @@ namespace GvrTools.Civil3D.Layouts
             try
             {
                 return layout.CurrentStyleSheet;
+            }
+            catch (System.Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        private static string SafeRead(System.Func<string> read)
+        {
+            try
+            {
+                return read() ?? string.Empty;
             }
             catch (System.Exception)
             {

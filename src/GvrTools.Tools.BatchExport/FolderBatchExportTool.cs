@@ -11,7 +11,7 @@ namespace GvrTools.Tools.BatchExport
     {
         public override string Id => "GvrFolderBatchExport";
 
-        public override string Title => "Exportar" + Environment.NewLine + "carpeta de DWG";
+        public override string Title => "Trazar" + Environment.NewLine + "carpeta de DWG";
 
         public override string PanelName => "Exportación";
 
@@ -22,11 +22,11 @@ namespace GvrTools.Tools.BatchExport
         public override string RequiredFeature => null; // Licenciamiento pausado en este MVP.
 
         public override string Tooltip =>
-            "Exporta a PDF todas las presentaciones de varios dibujos (.dwg) de una carpeta, sin abrirlos uno por uno.";
+            "Traza todas las presentaciones de varios dibujos (.dwg) de una carpeta, sin abrirlos uno por uno.";
 
         public override string LongDescription =>
-            "Abre cada dibujo brevemente en esta sesión, exporta sus presentaciones a PDF con el mismo motor " +
-            "nativo de trazado, y lo cierra sin guardar antes de pasar al siguiente.";
+            "Abre cada dibujo brevemente en esta sesión, traza sus presentaciones con la misma configuración " +
+            "del cuadro Trazar, y lo cierra sin guardar antes de pasar al siguiente.";
 
         public override ImageSource CreateIcon() => VectorIcon.Compose(
             VectorIcon.FilledRectangle(new Rect(3, 5, 16, 22), Colors.White, Color.FromRgb(0x45, 0x5A, 0x64), 1.5, 2),

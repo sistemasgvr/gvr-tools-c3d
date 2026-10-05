@@ -12,7 +12,7 @@
     <AssemblyName>GvrTools.Tools.BatchExport</AssemblyName>
     <RootNamespace>GvrTools.Tools.BatchExport</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>
-    <Description>Exportación masiva de presentaciones (layouts) a PDF.</Description>
+    <Description>Trazado masivo de presentaciones (layouts): PDF, DWF, PNG o impresora.</Description>
   </PropertyGroup>
 
   <ItemGroup>

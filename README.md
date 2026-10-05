@@ -87,7 +87,7 @@ Para una instalación manual, ver los comentarios de [deploy/GvrTools.addin](dep
 
 ```bash
 # Una versión concreta; la salida queda en build/<año>/
-dotnet build src/GvrTools.App/GvrTools.App.csproj -c Release -p:RevitVersion=2027
+dotnet build src/GvrTools.App/GvrTools.App.csproj -c Release -p:C3DVersion=2027
 
 # Pruebas unitarias (no requieren tener Revit instalado)
 dotnet test tests/GvrTools.Core.Tests/GvrTools.Core.Tests.csproj

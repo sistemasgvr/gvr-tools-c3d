@@ -18,6 +18,7 @@ namespace GvrTools.Tools.BatchExport.Views
             _viewModel = viewModel;
             _onClosed = onClosed;
             DataContext = _viewModel;
+            _viewModel.AttachWindow(this);
 
             Closed += (s, e) =>
             {

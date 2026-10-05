@@ -33,6 +33,13 @@ namespace GvrTools.Civil3D.Export
         public string ReserveBaseName(LayoutSnapshot layout) =>
             _resolver.ReserveBaseName(BuildName(layout), _extension);
 
+        /// <summary>
+        /// Same as <see cref="ReserveBaseName(LayoutSnapshot)"/> for a file type decided per layout
+        /// (the plot device sets it: ".pdf", ".dwf", ".png"...).
+        /// </summary>
+        public string ReserveBaseName(LayoutSnapshot layout, string extension) =>
+            _resolver.ReserveBaseName(BuildName(layout), extension);
+
         /// <summary>Expands the pattern without reserving anything, for the preview in the UI.</summary>
         public string Preview(LayoutSnapshot layout) => BuildName(layout) + _extension;
 

@@ -41,7 +41,10 @@ namespace GvrTools.Civil3D.Export
         /// layout (AutoCAD refuses to plot a layout that is not current). May be null in tests.</summary>
         public Document Document { get; }
 
+        /// <summary>Where files are written. Empty when the run only sends sheets to a printer.</summary>
         public string DestinationFolder { get; }
+
+        public bool WritesFiles => !string.IsNullOrWhiteSpace(DestinationFolder);
 
         public string NamingPattern { get; }
 
@@ -71,10 +74,11 @@ namespace GvrTools.Civil3D.Export
         /// <summary>Short description shown in the window of how this engine writes files.</summary>
         string StrategyDescription { get; }
 
-        /// <param name="totalItems">How many layouts the run will export in total. Needed so a
-        /// combined multi-page PDF knows which page is the last.</param>
+        /// <param name="layouts">Every layout the run will export, in order. A combined multi-sheet
+        /// file needs them up front: AutoCAD only writes the document once a page flagged "last"
+        /// arrives, so the engine must know which page that is before plotting the first one.</param>
         /// <exception cref="ExportSetupException">Nothing can be exported; message is user-facing.</exception>
-        IExportSession BeginSession(ExportRequest request, int totalItems);
+        IExportSession BeginSession(ExportRequest request, IReadOnlyList<LayoutSnapshot> layouts);
     }
 
     /// <summary>One export run. Not reusable, and always disposed by the caller.</summary>
@@ -102,7 +106,7 @@ namespace GvrTools.Civil3D.Export
 
         public static ExportEngineCatalog CreateDefault() => new ExportEngineCatalog(new IExportEngine[]
         {
-            new Pdf.PdfExportEngine()
+            new Plotting.PlotExportEngine()
         });
 
         public IEnumerable<ExportFormat> SupportedFormats => _engines.Keys;

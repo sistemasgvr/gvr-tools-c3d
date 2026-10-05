@@ -17,13 +17,22 @@ namespace GvrTools.Civil3D.Model
     /// </summary>
     public sealed class LayoutSnapshot
     {
-        public LayoutSnapshot(string objectIdHandle, string name, int tabOrder, string pageSetupName, string plotStyleTable = null)
+        public LayoutSnapshot(
+            string objectIdHandle,
+            string name,
+            int tabOrder,
+            string pageSetupName,
+            string plotStyleTable = null,
+            string plotDeviceName = null,
+            string canonicalMediaName = null)
         {
             ObjectIdHandle = objectIdHandle ?? string.Empty;
             Name = name ?? string.Empty;
             TabOrder = tabOrder;
             PageSetupName = pageSetupName ?? string.Empty;
             PlotStyleTable = plotStyleTable ?? string.Empty;
+            PlotDeviceName = plotDeviceName ?? string.Empty;
+            CanonicalMediaName = canonicalMediaName ?? string.Empty;
         }
 
         /// <summary>
@@ -48,6 +57,12 @@ namespace GvrTools.Civil3D.Model
         /// what the layout wants, not that it can be loaded.
         /// </summary>
         public string PlotStyleTable { get; }
+
+        /// <summary>Device of the layout's own page setup ("DWG To PDF.pc3", a printer, or "None").</summary>
+        public string PlotDeviceName { get; }
+
+        /// <summary>Paper of the layout's own page setup, as AutoCAD stores it (canonical name).</summary>
+        public string CanonicalMediaName { get; }
 
         public string Label => Name;
 

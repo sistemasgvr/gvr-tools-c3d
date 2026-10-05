@@ -1,8 +1,9 @@
 <Window x:Class="GvrTools.Tools.BatchExport.Views.FolderBatchExportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="GVR Tools - Exportación masiva de dibujos" Height="860" Width="980"
-        MinHeight="720" MinWidth="900"
+        xmlns:views="clr-namespace:GvrTools.Tools.BatchExport.Views"
+        Title="GVR Tools - Trazado masivo de dibujos" Height="900" Width="1060"
+        MinHeight="760" MinWidth="980"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <ResourceDictionary Source="pack://application:,,,/GvrTools.UI;component/Theme/GvrTheme.xaml"/>
@@ -11,143 +12,77 @@
     <Grid Margin="{StaticResource Gvr.Padding.Window}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="Exportar varios dibujos (.dwg) a PDF" Style="{StaticResource Gvr.Text.Title}"/>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="Trazar varios dibujos (.dwg)" Style="{StaticResource Gvr.Text.Title}"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Background="{StaticResource Gvr.Brush.Surface}" Padding="{StaticResource Gvr.Padding.Card}" Margin="0,0,0,10" IsEnabled="{Binding CanEditOptions}">
-            <StackPanel>
-                <TextBlock Text="Carpeta con los dibujos a exportar" Style="{StaticResource Gvr.Text.SectionHeader}"/>
-                <DockPanel Margin="0,0,0,4">
-                    <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding SourceFolderCommand}" Margin="8,0,0,0"/>
-                    <TextBox Text="{Binding SourceFolder, UpdateSourceTrigger=PropertyChanged}"/>
-                </DockPanel>
-                <CheckBox Content="Incluir subcarpetas" IsChecked="{Binding IncludeSubfolders}" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding SourceSummary}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,10"/>
+        <TabControl Grid.Row="1" Margin="0,0,0,10" IsEnabled="{Binding CanEditOptions}"
+                    SelectedIndex="{Binding Wizard.SelectedIndex, Mode=TwoWay}">
 
-                <TextBlock Text="Carpeta de destino" Style="{StaticResource Gvr.Text.SectionHeader}"/>
-                <DockPanel Margin="0,0,0,10">
-                    <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding BrowseDestinationCommand}" Margin="8,0,0,0"/>
-                    <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"/>
-                </DockPanel>
+            <!-- ============================================================ Dibujos -->
+            <TabItem Header="1. Dibujos">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-                <TextBlock Text="Nomenclatura de archivos" Style="{StaticResource Gvr.Text.SectionHeader}"/>
-                <TextBox Text="{Binding NamingPattern, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
-                <TextBlock Text="{Binding NamingHelpText}" Style="{StaticResource Gvr.Text.Subtle}" FontSize="11"/>
-            </StackPanel>
-        </Border>
-
-        <Border Grid.Row="2" BorderBrush="{StaticResource Gvr.Brush.Line}" BorderThickness="1" Margin="0,0,0,10" MinHeight="120">
-            <ListView ItemsSource="{Binding SourceFiles}" IsEnabled="{Binding CanEditOptions}"/>
-        </Border>
-
-        <Border Grid.Row="3" Background="{StaticResource Gvr.Brush.Surface}" Padding="{StaticResource Gvr.Padding.Card}" Margin="0,0,0,10" IsEnabled="{Binding CanEditOptions}">
-            <StackPanel>
-                <TextBlock Text="Configuración de trazado" Style="{StaticResource Gvr.Text.SectionHeader}" Margin="0,0,0,8"/>
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Dispositivo" Style="{StaticResource Gvr.Text.Label}" ToolTip="{Binding PlotDeviceToolTip}"/>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Carpeta con los dibujos a trazar" Style="{StaticResource Gvr.Text.SectionHeader}"/>
                         <DockPanel Margin="0,0,0,4">
-                            <Button DockPanel.Dock="Right" Content="Instalar HQ…" Command="{Binding InstallHqPlotterCommand}"
-                                    Margin="8,0,0,0" ToolTip="{Binding PlotDeviceToolTip}"/>
-                            <ComboBox ItemsSource="{Binding PlotDevices}" SelectedItem="{Binding PlotDeviceName}"
-                                      ToolTip="{Binding PlotDeviceToolTip}"/>
+                            <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding SourceFolderCommand}" Margin="8,0,0,0" Padding="10,2"/>
+                            <TextBox Text="{Binding SourceFolder, UpdateSourceTrigger=PropertyChanged}"/>
                         </DockPanel>
-                        <TextBlock Text="{Binding MissingPlotDeviceWarning}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                   Foreground="{StaticResource Gvr.Brush.Danger}"
-                                   Visibility="{Binding HasMissingPlotDevice, Converter={StaticResource Gvr.BoolToVisibility}}"/>
-
-                        <TextBlock Text="Papel" Style="{StaticResource Gvr.Text.Label}" ToolTip="{Binding PaperModeToolTip}"/>
-                        <ComboBox ItemsSource="{Binding PaperModeChoices}" SelectedValue="{Binding PaperMode}"
-                                  DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ToolTip="{Binding PaperModeToolTip}" Margin="0,0,0,4"/>
-                        <ComboBox ItemsSource="{Binding IsoSizeChoices}" SelectedValue="{Binding SelectedIsoSize}"
-                                  DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ToolTip="{Binding IsoSizeToolTip}" Margin="0,0,0,4"
-                                  Visibility="{Binding ShowIsoFullBleedSize, Converter={StaticResource Gvr.BoolToVisibility}}"/>
-                        <ComboBox ItemsSource="{Binding DeviceMediaNames}" SelectedItem="{Binding SelectedDeviceMediaName}"
-                                  ToolTip="{Binding DeviceMediaToolTip}"
-                                  Visibility="{Binding ShowDeviceMediaList, Converter={StaticResource Gvr.BoolToVisibility}}"/>
+                        <CheckBox Content="Incluir subcarpetas" IsChecked="{Binding IncludeSubfolders}" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding SourceSummary}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,8"/>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Área de trazado" Style="{StaticResource Gvr.Text.Label}" ToolTip="{Binding PlotAreaToolTip}"/>
-                        <ComboBox ItemsSource="{Binding PlotAreaChoices}" SelectedValue="{Binding PlotArea}"
-                                  DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ToolTip="{Binding PlotAreaToolTip}" Margin="0,0,0,8"/>
-
-                        <TextBlock Text="Escala de trazado" Style="{StaticResource Gvr.Text.Label}"/>
-                        <CheckBox Content="Preset GVR (escala 1:1 + centrar)" IsChecked="{Binding ForcePlotPreset}"
-                                  ToolTip="{Binding ForcePlotPresetToolTip}" Margin="0,0,0,4"/>
-                        <StackPanel Visibility="{Binding ShowManualScaleOptions, Converter={StaticResource Gvr.BoolToVisibility}}" Margin="0,0,0,4">
-                            <CheckBox Content="Ajustar a la página" IsChecked="{Binding FitToPaper}" Margin="0,0,0,2"
-                                      ToolTip="Equivalente a Fit to paper (ScaleToFit)."/>
-                            <CheckBox Content="Centrar el trazado" IsChecked="{Binding CenterPlot}" Margin="0,0,0,2"
-                                      ToolTip="Center the plot."/>
-                            <CheckBox Content="Escala personalizada (mm = unidad)" IsChecked="{Binding UseCustomScale}" Margin="0,0,0,2"
-                                      ToolTip="SetCustomPrintScale: unidades de papel = unidades de dibujo."/>
-                            <DockPanel Margin="0,0,0,2"
-                                       Visibility="{Binding ShowCustomScaleFields, Converter={StaticResource Gvr.BoolToVisibility}}">
-                                <TextBlock DockPanel.Dock="Left" Text="mm" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <TextBlock DockPanel.Dock="Right" Text="unidad" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                <TextBox Text="{Binding CustomScaleNumerator, UpdateSourceTrigger=PropertyChanged}" Width="48" Margin="0,0,4,0"/>
-                                <TextBlock Text="=" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                <TextBox Text="{Binding CustomScaleDenominator, UpdateSourceTrigger=PropertyChanged}"/>
-                            </DockPanel>
-                            <CheckBox Content="Escalar grosores de línea" IsChecked="{Binding ScaleLineweights}"
-                                      ToolTip="Scale lineweights (PlotSettings.ScaleLineweights)."/>
-                        </StackPanel>
-
-                        <TextBlock Text="Orientación" Style="{StaticResource Gvr.Text.Label}" Margin="0,8,0,0"
-                                   ToolTip="{Binding OrientationToolTip}"/>
-                        <ComboBox ItemsSource="{Binding OrientationChoices}" SelectedValue="{Binding PlotOrientation}"
-                                  DisplayMemberPath="Label" SelectedValuePath="Value"
-                                  ToolTip="{Binding OrientationToolTip}"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="4">
-                        <TextBlock Text="Tabla de estilos (plumas)" Style="{StaticResource Gvr.Text.Label}" ToolTip="{Binding PlotStyleToolTip}"/>
-                        <DockPanel Margin="0,0,0,8">
-                            <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding ImportPlotStyleCommand}"
-                                    Margin="8,0,0,0" ToolTip="{Binding PlotStyleToolTip}"/>
-                            <ComboBox ItemsSource="{Binding PlotStyleTables}" SelectedItem="{Binding SelectedPlotStyleTable}"
-                                      ToolTip="{Binding PlotStyleToolTip}"/>
-                        </DockPanel>
-
-                        <TextBlock Text="Opciones de trazado" Style="{StaticResource Gvr.Text.Label}" Margin="0,0,0,4"
-                                   ToolTip="Casillas del cuadro Imprimir de AutoCAD."/>
-                        <CheckBox Content="Trazar grosores de línea" IsChecked="{Binding PlotObjectLineweights}" Margin="0,0,0,2"
-                                  ToolTip="Plot object lineweights."/>
-                        <CheckBox Content="Trazar transparencias" IsChecked="{Binding PlotTransparency}" Margin="0,0,0,2"
-                                  ToolTip="Plot transparency."/>
-                        <CheckBox Content="Trazar con estilos de trazado" IsChecked="{Binding PlotWithPlotStyles}" Margin="0,0,0,2"
-                                  ToolTip="Plot with plot styles (aplica la tabla CTB/STB)."/>
-                        <CheckBox Content="Trazar espacio papel al final" IsChecked="{Binding PlotPaperspaceLast}" Margin="0,0,0,8"
-                                  ToolTip="Plot paperspace last (DrawViewportsFirst)."/>
-
-                        <CheckBox Content="Abrir la carpeta al terminar" IsChecked="{Binding OpenFolderWhenDone}"/>
-                    </StackPanel>
+                    <ListView Grid.Row="1" ItemsSource="{Binding SourceFiles}" BorderBrush="{StaticResource Gvr.Brush.Line}"/>
                 </Grid>
-            </StackPanel>
-        </Border>
+            </TabItem>
 
-        <StackPanel Grid.Row="4" Margin="0,0,0,10">
+            <!-- ============================================================ Trazado -->
+            <TabItem Header="2. Trazado" IsEnabled="{Binding Wizard.CanOpenStep1}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="8">
+                        <views:PlotConfigurationView DataContext="{Binding Plot}"/>
+                        <TextBlock Text="Se aplica a todas las presentaciones de todos los dibujos. Las configuraciones de página listadas son las del dibujo activo; usa 'Importar...' para traerlas de una plantilla."
+                                   Style="{StaticResource Gvr.Text.Subtle}" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================================================ Salida -->
+            <TabItem Header="3. Salida" IsEnabled="{Binding Wizard.CanOpenStep2}">
+                <StackPanel Margin="8">
+                    <TextBlock Text="{Binding Plot.OutputSummary}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,12"/>
+
+                    <TextBlock Text="Carpeta de destino" Style="{StaticResource Gvr.Text.SectionHeader}"/>
+                    <DockPanel Margin="0,0,0,4" IsEnabled="{Binding Plot.WritesFiles}">
+                        <Button DockPanel.Dock="Right" Content="Examinar..." Command="{Binding BrowseDestinationCommand}" Margin="8,0,0,0" Padding="10,2"/>
+                        <TextBox Text="{Binding OutputFolder, UpdateSourceTrigger=PropertyChanged}"/>
+                    </DockPanel>
+                    <TextBlock Text="{Binding DestinationSummary}" Style="{StaticResource Gvr.Text.Subtle}" Margin="0,0,0,14"/>
+
+                    <TextBlock Text="Nomenclatura de archivos" Style="{StaticResource Gvr.Text.SectionHeader}"/>
+                    <StackPanel IsEnabled="{Binding Plot.WritesFiles}">
+                        <TextBox Text="{Binding NamingPattern, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding NamingHelpText}" Style="{StaticResource Gvr.Text.Subtle}" FontSize="11" Margin="0,0,0,14"/>
+                    </StackPanel>
+
+                    <TextBlock Text="Opciones" Style="{StaticResource Gvr.Text.SectionHeader}"/>
+                    <CheckBox Content="Abrir la carpeta al terminar" IsChecked="{Binding OpenFolderWhenDone}"
+                              IsEnabled="{Binding Plot.WritesFiles}"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
             <ProgressBar Height="8" Minimum="0" Maximum="{Binding ProgressMaximum}" Value="{Binding ProgressValue}" Margin="0,0,0,6"/>
             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Gvr.Text.Subtle}" TextWrapping="Wrap"/>
             <ListView ItemsSource="{Binding Results}" MaxHeight="120"
@@ -157,16 +92,23 @@
                     <GridView>
                         <GridViewColumn Header=" " Width="24" DisplayMemberBinding="{Binding StatusIcon}"/>
                         <GridViewColumn Header="Dibujo" Width="240" DisplayMemberBinding="{Binding Label}"/>
-                        <GridViewColumn Header="Detalle" Width="360" DisplayMemberBinding="{Binding Detail}"/>
+                        <GridViewColumn Header="Detalle" Width="560" DisplayMemberBinding="{Binding Detail}"/>
                     </GridView>
                 </ListView.View>
             </ListView>
         </StackPanel>
 
-        <DockPanel Grid.Row="5" LastChildFill="False">
-            <Button DockPanel.Dock="Left" Content="Abrir carpeta" Command="{Binding OpenFolderCommand}"/>
-            <Button DockPanel.Dock="Right" Content="Exportar" Command="{Binding ExportCommand}" Margin="8,0,0,0" Padding="16,4" FontWeight="SemiBold"/>
-            <Button DockPanel.Dock="Right" Content="Cancelar" Command="{Binding CancelCommand}"/>
+        <DockPanel Grid.Row="3" LastChildFill="True">
+            <Button DockPanel.Dock="Left" Content="Abrir carpeta" Command="{Binding OpenFolderCommand}" Padding="10,4"/>
+            <Button DockPanel.Dock="Right" Content="Trazar" Command="{Binding ExportCommand}" Margin="8,0,0,0" Padding="20,4" FontWeight="SemiBold"
+                    ToolTip="Se activa al llegar al paso 3 (Salida), con dibujos en la carpeta y una configuración válida."/>
+            <Button DockPanel.Dock="Right" Content="Cancelar" Command="{Binding CancelCommand}" Margin="8,0,0,0" Padding="10,4"/>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" IsEnabled="{Binding CanEditOptions}">
+                <Button Content="&lt; Atrás" Command="{Binding Wizard.BackCommand}" Padding="10,4"/>
+                <Button Content="Siguiente &gt;" Command="{Binding Wizard.NextCommand}" Margin="6,0,0,0" Padding="10,4"/>
+            </StackPanel>
+            <TextBlock Text="{Binding Wizard.StepHint}" Style="{StaticResource Gvr.Text.Subtle}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="12,0,12,0"/>
         </DockPanel>
     </Grid>
 </Window>

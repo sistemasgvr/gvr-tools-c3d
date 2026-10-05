@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
+using System.Windows;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using GvrTools.Civil3D.Export;
-using GvrTools.Civil3D.Export.Pdf;
+using GvrTools.Civil3D.Export.Plotting;
 using GvrTools.Civil3D.Infrastructure;
 using GvrTools.Civil3D.Layouts;
 using GvrTools.Civil3D.Model;
@@ -21,18 +22,18 @@ using GvrTools.UI.Services;
 namespace GvrTools.Tools.BatchExport.ViewModels
 {
     /// <summary>
-    /// Window logic for the batch layout exporter.
+    /// Window logic for the batch layout plotter: which layouts (tab "Presentaciones"), how to plot
+    /// them (tab "Trazado", see <see cref="PlotConfigurationViewModel"/>) and where the output goes
+    /// (tab "Salida").
     ///
-    /// Much smaller than Revit's <c>BatchExportViewModel</c> on purpose: this MVP exports layouts
-    /// of the active drawing to PDF only (no DWG-per-layout, no saved selection filters, no
-    /// printer-driver special-casing — AutoCAD's own "DWG To PDF.pc3" device works unattended on
-    /// every supported release, unlike Revit 2021's missing PDF API). Those Revit-only complexities
-    /// are exactly what this rewrite intentionally leaves out; see IExportEngine for how a DWG
-    /// engine would plug back in later.
+    /// Much smaller than Revit's <c>BatchExportViewModel</c> on purpose: AutoCAD's own plot engine
+    /// drives every device of the Plot dialog unattended on every supported release, so there is
+    /// no printer-driver special-casing here; see IExportEngine for how other engines plug in.
     /// </summary>
     public sealed class BatchExportViewModel : ObservableObject, IDisposable
     {
-        private const string DialogTitle = "GVR Tools - Exportación masiva";
+        private const string DialogTitle = "GVR Tools - Trazado masivo";
+        private const string PlotSettingsKey = BatchExportPreferences.StorageKey + "-plot";
 
         private readonly Document _document;
         private readonly CivilJobScheduler _scheduler;
@@ -45,6 +46,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         private readonly Dictionary<string, DateTime> _exportHistory;
 
         private string _runDestinationFolder;
+        private bool _runWritesFiles;
+        private Window _hostWindow;
 
         public BatchExportViewModel(
             Document document,
@@ -68,29 +71,69 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             foreach (KeyValuePair<string, DateTime> entry in _historyStore.Load(_drawing.DrawingKey))
                 _exportHistory[entry.Key] = entry.Value;
 
-            LoadLayouts();
-            LoadPlotStyleTables();
-            LoadPlotDevices();
-
             // Los comandos deben existir ANTES de aplicar las preferencias: al asignar OutputFolder
             // su setter llama a ExportCommand.RaiseCanExecuteChanged(), y si ApplyPreferences corre
             // primero ExportCommand aún es null → NullReferenceException al abrir la ventana.
             SelectAllCommand = new RelayCommand(() => SetSelection(true));
             SelectNoneCommand = new RelayCommand(() => SetSelection(false));
             BrowseFolderCommand = new RelayCommand(BrowseFolder);
-            OpenFolderCommand = new RelayCommand(() => _dialogs.Reveal(DestinationFolder));
-            ImportPlotStyleCommand = new RelayCommand(ImportPlotStyleTable);
-            InstallHqPlotterCommand = new RelayCommand(InstallHqPlotter);
+            OpenFolderCommand = new RelayCommand(() => _dialogs.Reveal(DestinationFolder), () => !string.IsNullOrEmpty(DestinationFolder));
+            PreviewCommand = new RelayCommand(Preview, () => CanPreview);
             ExportCommand = new RelayCommand(StartExport, () => CanExport);
             CancelCommand = new RelayCommand(RequestCancel, () => IsExporting);
 
-            BatchExportPreferences preferences = _settingsStore.Load<BatchExportPreferences>(BatchExportPreferences.StorageKey);
-            ApplyPreferences(preferences);
+            Wizard = new WizardStepsViewModel(
+                step => step == 0 ? SelectedCount > 0 : step != 1 || (Plot != null && Plot.IsValid),
+                new[]
+                {
+                    "marca las presentaciones a trazar y pulsa Siguiente.",
+                    "revisa la configuración de trazado y pulsa Siguiente.",
+                    "elige la carpeta y el nombre de los archivos, y pulsa Trazar."
+                });
+            Wizard.PropertyChanged += (s, e) =>
+            {
+                Raise(nameof(CanExport));
+                ExportCommand.RaiseCanExecuteChanged();
+            };
+
+            LoadLayouts();
+
+            Plot = new PlotConfigurationViewModel(
+                _dialogs,
+                _log,
+                DialogTitle,
+                PlotScaleRepository.GetScales(document.Database),
+                ReadPageSetups(document.Database),
+                () => _drawing.LocalFolder)
+            {
+                MissingPlotStyleTablesProvider = GetMissingPlotStyleTables,
+                SelectedLayoutsProvider = () => Layouts.Where(l => l.IsSelected).Select(l => l.Layout).ToList(),
+                PickWindowHandler = PickCommonWindow
+            };
+            Plot.SettingsChanged += (s, e) => OnPlotSettingsChanged();
+
+            ApplyPreferences(_settingsStore.Load<BatchExportPreferences>(BatchExportPreferences.StorageKey));
+            Plot.Apply(LegacyPdfPreferences.LoadPlotSettings(_settingsStore, BatchExportPreferences.StorageKey, PlotSettingsKey));
+
+            PreviewLayout = Layouts.FirstOrDefault();
+            Wizard.Refresh();
 
             StatusText = Layouts.Count == 0
-                ? "El dibujo activo no tiene presentaciones para exportar."
+                ? "El dibujo activo no tiene presentaciones para trazar."
                 : $"{Layouts.Count} presentación(es) en el dibujo.";
         }
+
+        /// <summary>The plot options (tab "Trazado").</summary>
+        public PlotConfigurationViewModel Plot { get; }
+
+        /// <summary>Presentaciones → Trazado → Salida; "Trazar" only once all three were visited.</summary>
+        public WizardStepsViewModel Wizard { get; }
+
+        /// <summary>
+        /// Lets the view model hide its window while AutoCAD shows the plot preview or asks for a
+        /// window pick, as the Plot dialog itself does.
+        /// </summary>
+        public void AttachWindow(Window window) => _hostWindow = window;
 
         // ---------------------------------------------------------------- layout list
 
@@ -107,16 +150,13 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         {
             Layouts.Clear();
 
-            IReadOnlyList<LayoutSnapshot> snapshots = LayoutRepository.GetLayouts(_document.Database);
-
-            foreach (LayoutSnapshot snapshot in snapshots)
+            foreach (LayoutSnapshot snapshot in LayoutRepository.GetLayouts(_document.Database))
             {
                 var item = new LayoutItemViewModel(snapshot);
                 if (_exportHistory.TryGetValue(snapshot.ObjectIdHandle, out DateTime lastExported))
                     item.LastExportedUtc = lastExported;
 
-                item.PropertyChanged += (s, e) =>
-                    Raise(nameof(SelectionSummary), nameof(CanExport), nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
+                item.PropertyChanged += (s, e) => OnSelectionChanged();
                 Layouts.Add(item);
             }
         }
@@ -128,7 +168,52 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         private void SetSelection(bool selected)
         {
             foreach (LayoutItemViewModel item in Layouts) item.IsSelected = selected;
-            Raise(nameof(SelectionSummary), nameof(CanExport), nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
+            OnSelectionChanged();
+        }
+
+        private void OnSelectionChanged()
+        {
+            // La presentación de referencia sigue a la selección si la actual ya no se va a trazar.
+            if (PreviewLayout == null || !PreviewLayout.IsSelected)
+            {
+                LayoutItemViewModel firstSelected = Layouts.FirstOrDefault(l => l.IsSelected);
+                if (firstSelected != null) PreviewLayout = firstSelected;
+            }
+
+            Raise(nameof(SelectionSummary), nameof(CanExport));
+            Plot?.RefreshLayoutWarnings();
+            Wizard?.Refresh();
+            ExportCommand?.RaiseCanExecuteChanged();
+        }
+
+        private IReadOnlyList<string> GetMissingPlotStyleTables()
+        {
+            var missing = new List<string>();
+
+            foreach (LayoutItemViewModel item in Layouts)
+            {
+                if (!item.IsSelected) continue;
+
+                string table = item.Layout.PlotStyleTable;
+                if (string.IsNullOrWhiteSpace(table)) continue;
+                if (PlotStyleTableRepository.IsInstalled(table)) continue;
+                if (!missing.Contains(table)) missing.Add(table);
+            }
+
+            return missing;
+        }
+
+        private IReadOnlyList<NamedPageSetup> ReadPageSetups(Database database)
+        {
+            try
+            {
+                return PageSetupRepository.Read(database);
+            }
+            catch (Exception ex)
+            {
+                _log.Warn("No se pudieron leer las configuraciones de página del dibujo: " + ex.Message);
+                return Array.Empty<NamedPageSetup>();
+            }
         }
 
         // ---------------------------------------------------------------- destination and naming
@@ -140,21 +225,38 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             set
             {
                 if (!Set(ref _outputFolder, value)) return;
-                Raise(nameof(DestinationFolder), nameof(CanExport));
+                Raise(nameof(DestinationFolder), nameof(DestinationSummary), nameof(CanExport));
                 ExportCommand?.RaiseCanExecuteChanged();
+                OpenFolderCommand?.RaiseCanExecuteChanged();
             }
         }
 
-        /// <summary>Each run writes into a subfolder named after the drawing file.</summary>
+        /// <summary>
+        /// Each run writes into a subfolder named after the output and the drawing ("PDF_Planos");
+        /// empty when the run only prints.
+        /// </summary>
         public string DestinationFolder
         {
             get
             {
                 if (!string.IsNullOrEmpty(_runDestinationFolder)) return _runDestinationFolder;
-                if (string.IsNullOrWhiteSpace(OutputFolder)) return string.Empty;
+                if (Plot == null || !Plot.WritesFiles || string.IsNullOrWhiteSpace(OutputFolder)) return string.Empty;
 
-                string desired = System.IO.Path.Combine(OutputFolder, "PDF_" + _drawing.Title);
+                string desired = System.IO.Path.Combine(OutputFolder, Plot.OutputFolderPrefix + "_" + _drawing.Title);
                 return ExportPathHelper.AllocateUniqueDirectoryPath(desired);
+            }
+        }
+
+        public string DestinationSummary
+        {
+            get
+            {
+                if (Plot != null && !Plot.WritesFiles)
+                    return "Impresión directa: no se crean archivos ni carpetas.";
+
+                return string.IsNullOrWhiteSpace(OutputFolder)
+                    ? "Elige la carpeta donde se guardarán los archivos."
+                    : "Se creará: " + DestinationFolder;
             }
         }
 
@@ -183,321 +285,6 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             }
         }
 
-        // ---------------------------------------------------------------- PDF options
-
-        public ObservableCollection<string> PlotDevices { get; } = new ObservableCollection<string>();
-
-        private string _plotDeviceName = PlotDeviceRepository.DefaultPdfDeviceName;
-        public string PlotDeviceName
-        {
-            get => _plotDeviceName;
-            set
-            {
-                if (Set(ref _plotDeviceName, value ?? string.Empty))
-                {
-                    Raise(nameof(CanExport), nameof(MissingPlotDeviceWarning), nameof(HasMissingPlotDevice));
-                    ExportCommand?.RaiseCanExecuteChanged();
-                    ReloadDeviceMediaNames();
-                }
-            }
-        }
-
-        public string PlotDeviceToolTip =>
-            "Plotter PDF (.pc3) aplicado a todas las presentaciones. " +
-            "Para sellos y textos densos, instala o elige un plotter HQ (DPI alto).";
-
-        public IReadOnlyList<ChoiceItem<PdfPaperMode>> PaperModeChoices { get; } = ChoiceItem.List(
-            ChoiceItem.Of(PdfPaperMode.ForceIsoFullBleed, "Forzar ISO full bleed"),
-            ChoiceItem.Of(PdfPaperMode.UseLayout, "Usar tamaño del layout"),
-            ChoiceItem.Of(PdfPaperMode.SelectFromDevice, "Elegir del dispositivo…"));
-
-        private PdfPaperMode _paperMode = PdfPaperMode.ForceIsoFullBleed;
-        public PdfPaperMode PaperMode
-        {
-            get => _paperMode;
-            set
-            {
-                if (Set(ref _paperMode, value))
-                {
-                    Raise(nameof(ShowIsoFullBleedSize));
-                    Raise(nameof(ShowDeviceMediaList));
-                }
-            }
-        }
-
-        public bool ShowIsoFullBleedSize => PaperMode == PdfPaperMode.ForceIsoFullBleed;
-
-        public bool ShowDeviceMediaList => PaperMode == PdfPaperMode.SelectFromDevice;
-
-        public string PaperModeToolTip =>
-            "Por defecto se fuerza ISO full bleed A4 en todo el lote. " +
-            "También puedes respetar cada layout o elegir cualquier tamaño que ofrezca el .pc3.";
-
-        public IReadOnlyList<ChoiceItem<IsoFullBleedSize>> IsoSizeChoices { get; } = ChoiceItem.List(
-            ChoiceItem.Of(IsoFullBleedSize.A0, "A0"),
-            ChoiceItem.Of(IsoFullBleedSize.A1, "A1"),
-            ChoiceItem.Of(IsoFullBleedSize.A2, "A2"),
-            ChoiceItem.Of(IsoFullBleedSize.A3, "A3"),
-            ChoiceItem.Of(IsoFullBleedSize.A4, "A4"));
-
-        private IsoFullBleedSize _selectedIsoSize = IsoFullBleedSize.A4;
-        public IsoFullBleedSize SelectedIsoSize
-        {
-            get => _selectedIsoSize;
-            set => Set(ref _selectedIsoSize, value);
-        }
-
-        public string IsoSizeToolTip =>
-            "Tamaño ISO full bleed (sin márgenes). La orientación Vertical/Horizontal elige entre las variantes del plotter.";
-
-        public ObservableCollection<string> DeviceMediaNames { get; } = new ObservableCollection<string>();
-
-        private string _selectedDeviceMediaName = string.Empty;
-        public string SelectedDeviceMediaName
-        {
-            get => _selectedDeviceMediaName;
-            set => Set(ref _selectedDeviceMediaName, value ?? string.Empty);
-        }
-
-        public string DeviceMediaToolTip =>
-            "Lista completa de papeles del plotter seleccionado (igual que el cuadro Imprimir de AutoCAD).";
-
-        public IReadOnlyList<ChoiceItem<PdfPlotArea>> PlotAreaChoices { get; } = ChoiceItem.List(
-            ChoiceItem.Of(PdfPlotArea.Extents, "Extents"),
-            ChoiceItem.Of(PdfPlotArea.Window, "Window"),
-            ChoiceItem.Of(PdfPlotArea.Display, "Display"),
-            ChoiceItem.Of(PdfPlotArea.Layout, "Layout"));
-
-        private PdfPlotArea _plotArea = PdfPlotArea.Extents;
-        public PdfPlotArea PlotArea
-        {
-            get => _plotArea;
-            set => Set(ref _plotArea, value);
-        }
-
-        public string PlotAreaToolTip =>
-            "Extents (recomendado): todo lo dibujado, sin objetos en el espacio gris. " +
-            "Window usa la ventana ya guardada en la configuración de página del layout.";
-
-        private bool _forcePlotPreset = true;
-        public bool ForcePlotPreset
-        {
-            get => _forcePlotPreset;
-            set
-            {
-                if (Set(ref _forcePlotPreset, value))
-                {
-                    Raise(nameof(ShowManualScaleOptions));
-                    Raise(nameof(ShowCustomScaleFields));
-                }
-            }
-        }
-
-        public bool ShowManualScaleOptions => !ForcePlotPreset;
-
-        public string ForcePlotPresetToolTip =>
-            "Preset GVR: escala 1:1, centrado, sin ajustar a la página (como el cuadro Imprimir recomendado).";
-
-        private bool _fitToPaper;
-        public bool FitToPaper
-        {
-            get => _fitToPaper;
-            set
-            {
-                if (Set(ref _fitToPaper, value))
-                    Raise(nameof(ShowCustomScaleFields));
-            }
-        }
-
-        private bool _centerPlot = true;
-        public bool CenterPlot
-        {
-            get => _centerPlot;
-            set => Set(ref _centerPlot, value);
-        }
-
-        private bool _useCustomScale;
-        public bool UseCustomScale
-        {
-            get => _useCustomScale;
-            set
-            {
-                if (Set(ref _useCustomScale, value))
-                    Raise(nameof(ShowCustomScaleFields));
-            }
-        }
-
-        public bool ShowCustomScaleFields => !ForcePlotPreset && !FitToPaper && UseCustomScale;
-
-        private double _customScaleNumerator = 1.0;
-        public double CustomScaleNumerator
-        {
-            get => _customScaleNumerator;
-            set => Set(ref _customScaleNumerator, value);
-        }
-
-        private double _customScaleDenominator = 1.0;
-        public double CustomScaleDenominator
-        {
-            get => _customScaleDenominator;
-            set => Set(ref _customScaleDenominator, value);
-        }
-
-        private bool _scaleLineweights;
-        public bool ScaleLineweights
-        {
-            get => _scaleLineweights;
-            set => Set(ref _scaleLineweights, value);
-        }
-
-        public IReadOnlyList<ChoiceItem<PdfPlotOrientation>> OrientationChoices { get; } = ChoiceItem.List(
-            ChoiceItem.Of(PdfPlotOrientation.Landscape, "Horizontal"),
-            ChoiceItem.Of(PdfPlotOrientation.Portrait, "Vertical"));
-
-        private PdfPlotOrientation _plotOrientation = PdfPlotOrientation.Landscape;
-        public PdfPlotOrientation PlotOrientation
-        {
-            get => _plotOrientation;
-            set => Set(ref _plotOrientation, value);
-        }
-
-        public string OrientationToolTip =>
-            "Orientación del dibujo en el papel (SetPlotRotation: Horizontal = 0°, Vertical = 90°).";
-
-        public ObservableCollection<string> PlotStyleTables { get; } = new ObservableCollection<string>();
-
-        private string _selectedPlotStyleTable = PlotStyleTableRepository.KeepLayoutTableLabel;
-        public string SelectedPlotStyleTable
-        {
-            get => _selectedPlotStyleTable;
-            set => Set(ref _selectedPlotStyleTable, value ?? PlotStyleTableRepository.KeepLayoutTableLabel);
-        }
-
-        public string PlotStyleToolTip =>
-            "Tabla de estilos (.ctb/.stb) con plumas de color y grosor. " +
-            "Cada empresa usa la suya; impórtala si no está instalada en este PC.";
-
-        private List<string> GetMissingPlotStyleTables()
-        {
-            var missing = new List<string>();
-
-            foreach (LayoutItemViewModel item in Layouts)
-            {
-                if (!item.IsSelected) continue;
-
-                string table = item.Layout.PlotStyleTable;
-                if (string.IsNullOrWhiteSpace(table)) continue;
-                if (PlotStyleTableRepository.IsInstalled(table)) continue;
-                if (!missing.Contains(table)) missing.Add(table);
-            }
-
-            return missing;
-        }
-
-        public string MissingPlotStyleWarning
-        {
-            get
-            {
-                List<string> missing = GetMissingPlotStyleTables();
-                if (missing.Count == 0) return string.Empty;
-
-                return $"Falta la tabla de estilos {string.Join(", ", missing)}. " +
-                       "Usa \"Examinar...\" para instalarla desde el proyecto, o elige otra de la lista.";
-            }
-        }
-
-        public bool HasMissingPlotStyle => !string.IsNullOrEmpty(MissingPlotStyleWarning);
-
-        public string MissingPlotDeviceWarning =>
-            PlotDevices.Count == 0
-                ? "No hay dispositivos PDF (.pc3) instalados."
-                : string.IsNullOrWhiteSpace(PlotDeviceName)
-                    ? "Selecciona un dispositivo de trazado PDF."
-                    : !PlotDevices.Contains(PlotDeviceName)
-                        ? $"El dispositivo \"{PlotDeviceName}\" ya no está instalado."
-                        : string.Empty;
-
-        public bool HasMissingPlotDevice => !string.IsNullOrEmpty(MissingPlotDeviceWarning);
-
-        private bool _plotTransparency = true;
-        public bool PlotTransparency
-        {
-            get => _plotTransparency;
-            set => Set(ref _plotTransparency, value);
-        }
-
-        private bool _plotObjectLineweights = true;
-        public bool PlotObjectLineweights
-        {
-            get => _plotObjectLineweights;
-            set => Set(ref _plotObjectLineweights, value);
-        }
-
-        private bool _plotWithPlotStyles = true;
-        public bool PlotWithPlotStyles
-        {
-            get => _plotWithPlotStyles;
-            set => Set(ref _plotWithPlotStyles, value);
-        }
-
-        private bool _plotPaperspaceLast = true;
-        public bool PlotPaperspaceLast
-        {
-            get => _plotPaperspaceLast;
-            set => Set(ref _plotPaperspaceLast, value);
-        }
-
-        private void LoadPlotStyleTables()
-        {
-            PlotStyleTableRepository.Refresh();
-
-            PlotStyleTables.Clear();
-            PlotStyleTables.Add(PlotStyleTableRepository.KeepLayoutTableLabel);
-
-            foreach (string table in PlotStyleTableRepository.GetAvailableTables())
-                PlotStyleTables.Add(table);
-        }
-
-        private void LoadPlotDevices()
-        {
-            PlotDeviceRepository.Refresh();
-
-            PlotDevices.Clear();
-            foreach (string device in PlotDeviceRepository.GetAvailablePdfDevices())
-                PlotDevices.Add(device);
-
-            ReloadDeviceMediaNames();
-        }
-
-        private void ReloadDeviceMediaNames()
-        {
-            string previous = SelectedDeviceMediaName;
-            DeviceMediaNames.Clear();
-
-            if (string.IsNullOrWhiteSpace(PlotDeviceName))
-            {
-                SelectedDeviceMediaName = string.Empty;
-                return;
-            }
-
-            foreach (string media in PlotDeviceRepository.GetCanonicalMediaNames(PlotDeviceName))
-                DeviceMediaNames.Add(media);
-
-            if (!string.IsNullOrWhiteSpace(previous) && DeviceMediaNames.Contains(previous))
-                SelectedDeviceMediaName = previous;
-            else if (DeviceMediaNames.Count > 0)
-                SelectedDeviceMediaName = DeviceMediaNames[0];
-            else
-                SelectedDeviceMediaName = string.Empty;
-        }
-
-        private bool _combineIntoSinglePdf;
-        public bool CombineIntoSinglePdf
-        {
-            get => _combineIntoSinglePdf;
-            set => Set(ref _combineIntoSinglePdf, value);
-        }
-
         private bool _openFolderWhenDone = true;
         public bool OpenFolderWhenDone
         {
@@ -505,31 +292,91 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             set => Set(ref _openFolderWhenDone, value);
         }
 
-        public string StrategyDescription => _engines.Resolve(ExportFormat.Pdf).StrategyDescription;
-
-        private PdfExportSettings BuildPdfSettings() => new PdfExportSettings
+        private void BrowseFolder()
         {
-            ForcePlotDevice = true,
-            PlotDeviceName = PlotDeviceName,
-            PaperMode = PaperMode,
-            IsoFullBleedSize = SelectedIsoSize,
-            SelectedCanonicalMediaName = SelectedDeviceMediaName,
-            PlotArea = PlotArea,
-            ForcePlotPreset = ForcePlotPreset,
-            FitToPaper = FitToPaper,
-            CenterPlot = CenterPlot,
-            UseCustomScale = UseCustomScale,
-            CustomScaleNumerator = CustomScaleNumerator,
-            CustomScaleDenominator = CustomScaleDenominator,
-            ScaleLineweights = ScaleLineweights,
-            PlotOrientation = PlotOrientation,
-            PlotTransparency = PlotTransparency,
-            PlotObjectLineweights = PlotObjectLineweights,
-            PlotWithPlotStyles = PlotWithPlotStyles,
-            PlotPaperspaceLast = PlotPaperspaceLast,
-            CombineIntoSinglePdf = CombineIntoSinglePdf,
-            PlotStyleTableOverride = ResolvePlotStyleOverride()
-        };
+            string picked = _dialogs.PickFolder("Elige la carpeta de destino", OutputFolder);
+            if (picked != null) OutputFolder = picked;
+        }
+
+        private void OnPlotSettingsChanged()
+        {
+            Wizard?.Refresh();
+            Raise(nameof(DestinationFolder), nameof(DestinationSummary), nameof(CanExport), nameof(CanPreview));
+            ExportCommand?.RaiseCanExecuteChanged();
+            PreviewCommand?.RaiseCanExecuteChanged();
+            OpenFolderCommand?.RaiseCanExecuteChanged();
+        }
+
+        // ---------------------------------------------------------------- preview and window pick
+
+        private LayoutItemViewModel _previewLayout;
+        /// <summary>Layout used by "Vista preliminar" and "Designar ventana".</summary>
+        public LayoutItemViewModel PreviewLayout
+        {
+            get => _previewLayout;
+            set
+            {
+                if (!Set(ref _previewLayout, value)) return;
+                Raise(nameof(CanPreview));
+                PreviewCommand?.RaiseCanExecuteChanged();
+            }
+        }
+
+        public bool CanPreview => !IsExporting && PreviewLayout != null && Plot != null && Plot.IsValid;
+
+        private void Preview()
+        {
+            if (!CanPreview) return;
+
+            string error = null;
+            PlotExportSettings settings = Plot.BuildSettings();
+            RunWhileHidden(() => error = PlotPreviewService.ShowPreview(_document, PreviewLayout.Layout, settings, _log));
+
+            if (error != null) _dialogs.ShowWarning(DialogTitle, error);
+        }
+
+        private Extents2d? PickCommonWindow()
+        {
+            LayoutItemViewModel reference = PreviewLayout
+                ?? Layouts.FirstOrDefault(l => l.IsSelected)
+                ?? Layouts.FirstOrDefault();
+
+            if (reference == null || _hostWindow == null) return null;
+
+            try
+            {
+                return PlotPreviewService.TryPickWindow(_document, reference.Name, _hostWindow, _log, out Extents2d window)
+                    ? window
+                    : (Extents2d?)null;
+            }
+            catch (Exception ex)
+            {
+                _log.Error("No se pudo designar la ventana de trazado.", ex);
+                _dialogs.ShowError(DialogTitle, "No se pudo designar la ventana: " + ex.Message);
+                return null;
+            }
+        }
+
+        private void RunWhileHidden(Action body)
+        {
+            Window window = _hostWindow;
+            if (window == null)
+            {
+                body();
+                return;
+            }
+
+            window.Hide();
+            try
+            {
+                body();
+            }
+            finally
+            {
+                window.Show();
+                window.Activate();
+            }
+        }
 
         // ---------------------------------------------------------------- run state
 
@@ -540,9 +387,10 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             set
             {
                 if (!Set(ref _isExporting, value)) return;
-                Raise(nameof(CanEditOptions));
+                Raise(nameof(CanEditOptions), nameof(CanPreview));
                 ExportCommand.RaiseCanExecuteChanged();
                 CancelCommand.RaiseCanExecuteChanged();
+                PreviewCommand.RaiseCanExecuteChanged();
             }
         }
 
@@ -578,9 +426,10 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public bool CanExport =>
             !IsExporting &&
+            Wizard != null && Wizard.HasReachedLastStep &&
             SelectedCount > 0 &&
-            !string.IsNullOrWhiteSpace(OutputFolder) &&
-            !HasMissingPlotDevice;
+            Plot != null && Plot.IsValid &&
+            (!Plot.WritesFiles || !string.IsNullOrWhiteSpace(OutputFolder));
 
         // ---------------------------------------------------------------- commands
 
@@ -592,19 +441,11 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
         public RelayCommand OpenFolderCommand { get; }
 
-        public RelayCommand ImportPlotStyleCommand { get; }
-
-        public RelayCommand InstallHqPlotterCommand { get; }
+        public RelayCommand PreviewCommand { get; }
 
         public RelayCommand ExportCommand { get; }
 
         public RelayCommand CancelCommand { get; }
-
-        private void BrowseFolder()
-        {
-            string picked = _dialogs.PickFolder("Elige la carpeta de destino", OutputFolder);
-            if (picked != null) OutputFolder = picked;
-        }
 
         private void StartExport()
         {
@@ -613,21 +454,28 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             List<LayoutSnapshot> selected = Layouts.Where(item => item.IsSelected).Select(item => item.Layout).ToList();
             if (selected.Count == 0) return;
 
+            if (Plot.HasClipWarning &&
+                !_dialogs.Confirm(DialogTitle, Plot.ClipWarning + Environment.NewLine + Environment.NewLine + "¿Trazar de todos modos?"))
+            {
+                Wizard.SelectedIndex = 1;
+                return;
+            }
+
+            _runWritesFiles = Plot.WritesFiles;
             _runDestinationFolder = DestinationFolder;
-            Raise(nameof(DestinationFolder));
+            Raise(nameof(DestinationFolder), nameof(DestinationSummary));
 
-            var settings = BuildPdfSettings();
-
+            PlotExportSettings settings = Plot.BuildSettings();
             var request = new ExportRequest(_document.Database, _runDestinationFolder, NamingPattern, settings, _drawing, _log, _document);
 
-            IExportEngine engine = _engines.Resolve(ExportFormat.Pdf);
+            IExportEngine engine = _engines.Resolve(ExportFormat.Plot);
 
             Results.Clear();
             ShowResults = false;
             ProgressValue = 0;
             ProgressMaximum = selected.Count;
             IsExporting = true;
-            StatusText = "Exportando...";
+            StatusText = "Trazando...";
 
             var job = new BatchExportJob(
                 engine,
@@ -638,7 +486,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
                     ProgressValue = progress.Completed;
                     ProgressMaximum = progress.Total;
                     if (progress.Completed < progress.Total)
-                        StatusText = $"Exportando \"{progress.CurrentLabel}\"...";
+                        StatusText = $"Trazando \"{progress.CurrentLabel}\"...";
                 },
                 result => Results.Add(new ExportResultItemViewModel(result)),
                 OnFinished);
@@ -651,140 +499,10 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             catch (Exception ex)
             {
                 IsExporting = false;
-                _log.Error("No se pudo iniciar la exportación.", ex);
+                _log.Error("No se pudo iniciar el trazado.", ex);
                 _dialogs.ShowError(DialogTitle, ex.Message);
             }
         }
-
-        private void InstallHqPlotter()
-        {
-            try
-            {
-                string installed = PlotDeviceRepository.InstallBundledHqPlotter(overwriteExisting: true);
-                LoadPlotDevices();
-
-                foreach (string device in PlotDevices)
-                {
-                    if (string.Equals(device, installed, StringComparison.OrdinalIgnoreCase))
-                    {
-                        PlotDeviceName = device;
-                        break;
-                    }
-                }
-
-                _dialogs.ShowInfo(DialogTitle,
-                    $"Se instaló \"{installed}\" en la carpeta de plotters y quedó seleccionado.");
-            }
-            catch (Exception ex)
-            {
-                _log.Error("No se pudo instalar el plotter HQ.", ex);
-                _dialogs.ShowError(DialogTitle, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Lets the user point at a .ctb/.stb that ships with the project instead of one already
-        /// installed. The plot engine resolves style tables by NAME out of AutoCAD's own folders, so
-        /// the file is copied there first and then selected.
-        /// </summary>
-        private void ImportPlotStyleTable()
-        {
-            string initial = _drawing.LocalFolder;
-
-            string picked = _dialogs.PickFile(
-                "Selecciona la tabla de estilos del proyecto",
-                "Tablas de estilos (*.ctb;*.stb)|*.ctb;*.stb|Todos los archivos (*.*)|*.*",
-                initial);
-
-            if (picked == null) return;
-
-            try
-            {
-                string installAs = ResolveInstallName(picked);
-
-                string installed;
-                try
-                {
-                    installed = PlotStyleTableRepository.Import(picked, overwriteExisting: false, installAs: installAs);
-                }
-                catch (PlotStyleAlreadyExistsException exists)
-                {
-                    bool replace = _dialogs.Confirm(DialogTitle,
-                        $"{exists.Message}{Environment.NewLine}{Environment.NewLine}" +
-                        "¿Reemplazarla con la del proyecto?");
-
-                    if (!replace)
-                    {
-                        // Se conserva la ya instalada: basta con seleccionarla.
-                        SelectInstalledTable(exists.TableName);
-                        return;
-                    }
-
-                    installed = PlotStyleTableRepository.Import(picked, overwriteExisting: true, installAs: installAs);
-                }
-
-                LoadPlotStyleTables();
-                SelectInstalledTable(installed);
-                Raise(nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
-
-                _log.Info($"Tabla de estilos '{installed}' importada desde '{picked}'.");
-                _dialogs.ShowInfo(DialogTitle,
-                    $"Se instaló la tabla de estilos \"{installed}\" y quedó seleccionada para esta exportación.");
-            }
-            catch (PlotStyleImportException ex)
-            {
-                _log.Error("No se pudo importar la tabla de estilos.", ex);
-                _dialogs.ShowError(DialogTitle, ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// Name the picked file should be installed under.
-        ///
-        /// The plot engine matches style tables by name, so a project that ships "Lombardi 3.ctb"
-        /// does NOT satisfy layouts asking for "Lombardi.ctb" — same pens, wrong name, still
-        /// missing. When the file name differs from the table the layouts want, this offers to
-        /// install it under the expected name. Returns null to keep the file's own name.
-        /// </summary>
-        private string ResolveInstallName(string pickedFile)
-        {
-            List<string> missing = GetMissingPlotStyleTables();
-            if (missing.Count != 1) return null;
-
-            string wanted = missing[0];
-            string pickedName = System.IO.Path.GetFileName(pickedFile);
-
-            if (string.Equals(pickedName, wanted, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            bool rename = _dialogs.Confirm(DialogTitle,
-                $"Las presentaciones piden \"{wanted}\", pero seleccionaste \"{pickedName}\"." +
-                $"{Environment.NewLine}{Environment.NewLine}" +
-                $"¿Instalarla como \"{wanted}\" para que las presentaciones la encuentren?" +
-                $"{Environment.NewLine}{Environment.NewLine}" +
-                $"Si eliges Cancelar se instalará como \"{pickedName}\" y tendrás que seleccionarla a mano.");
-
-            return rename ? wanted : null;
-        }
-
-        private void SelectInstalledTable(string tableName)
-        {
-            foreach (string table in PlotStyleTables)
-            {
-                if (string.Equals(table, tableName, StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectedPlotStyleTable = table;
-                    Raise(nameof(MissingPlotStyleWarning), nameof(HasMissingPlotStyle));
-                    return;
-                }
-            }
-        }
-
-        /// <summary>The chosen table, or empty when the user kept each layout's own.</summary>
-        private string ResolvePlotStyleOverride() =>
-            string.Equals(SelectedPlotStyleTable, PlotStyleTableRepository.KeepLayoutTableLabel, StringComparison.Ordinal)
-                ? string.Empty
-                : SelectedPlotStyleTable;
 
         private void RequestCancel() => _scheduler.RequestCancel();
 
@@ -795,13 +513,14 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
             if (result.HasSetupError)
             {
-                StatusText = "No se pudo exportar: " + result.SetupError;
+                StatusText = "No se pudo trazar: " + result.SetupError;
                 _dialogs.ShowError(DialogTitle, result.SetupError);
+                _runDestinationFolder = null;
                 return;
             }
 
             StatusText = result.WasCancelled
-                ? $"Cancelado. {result.SucceededCount} exportada(s) antes de cancelar."
+                ? $"Cancelado. {result.SucceededCount} trazada(s) antes de cancelar."
                 : $"Listo: {result.SucceededCount} correcta(s), {result.FailedCount} con error.";
 
             DateTime now = DateTime.UtcNow;
@@ -821,12 +540,13 @@ namespace GvrTools.Tools.BatchExport.ViewModels
 
             string destination = result.DestinationFolder;
 
-            if (OpenFolderWhenDone && result.SucceededCount > 0)
+            if (OpenFolderWhenDone && _runWritesFiles && result.SucceededCount > 0)
                 _dialogs.Reveal(destination);
 
             ShowCompletionDialog(result, destination);
 
             _runDestinationFolder = null;
+            Raise(nameof(DestinationFolder), nameof(DestinationSummary));
         }
 
         /// <summary>
@@ -838,16 +558,20 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             if (result.WasCancelled)
             {
                 _dialogs.ShowWarning(DialogTitle,
-                    $"Exportación cancelada.{Environment.NewLine}{Environment.NewLine}" +
-                    $"Se alcanzaron a exportar {result.SucceededCount} presentación(es).");
+                    $"Trazado cancelado.{Environment.NewLine}{Environment.NewLine}" +
+                    $"Se alcanzaron a trazar {result.SucceededCount} presentación(es).");
                 return;
             }
 
             var message = new StringBuilder();
-            message.AppendLine($"Se exportaron {result.SucceededCount} presentación(es) a PDF.");
-            message.AppendLine();
-            message.AppendLine("Carpeta:");
-            message.Append(destinationFolder);
+            message.AppendLine($"Se trazaron {result.SucceededCount} presentación(es).");
+
+            if (_runWritesFiles && !string.IsNullOrEmpty(destinationFolder))
+            {
+                message.AppendLine();
+                message.AppendLine("Carpeta:");
+                message.Append(destinationFolder);
+            }
 
             if (result.FailedCount == 0)
             {
@@ -879,53 +603,8 @@ namespace GvrTools.Tools.BatchExport.ViewModels
         private void ApplyPreferences(BatchExportPreferences preferences)
         {
             OutputFolder = preferences.OutputFolder;
-            NamingPattern = preferences.NamingPattern;
+            NamingPattern = string.IsNullOrWhiteSpace(preferences.NamingPattern) ? NamingTokens.DefaultPattern : preferences.NamingPattern;
             OpenFolderWhenDone = preferences.OpenFolderWhenDone;
-            CombineIntoSinglePdf = preferences.PdfCombineIntoSinglePdf;
-            PaperMode = Enum.IsDefined(typeof(PdfPaperMode), preferences.PdfPaperMode)
-                ? (PdfPaperMode)preferences.PdfPaperMode
-                : PdfPaperMode.ForceIsoFullBleed;
-            SelectedIsoSize = Enum.IsDefined(typeof(IsoFullBleedSize), preferences.PdfIsoFullBleedSize)
-                ? (IsoFullBleedSize)preferences.PdfIsoFullBleedSize
-                : IsoFullBleedSize.A4;
-            PlotArea = Enum.IsDefined(typeof(PdfPlotArea), preferences.PdfPlotArea)
-                ? (PdfPlotArea)preferences.PdfPlotArea
-                : PdfPlotArea.Extents;
-            ForcePlotPreset = preferences.PdfForcePlotPreset;
-            FitToPaper = preferences.PdfFitToPaper;
-            CenterPlot = preferences.PdfCenterPlot;
-            UseCustomScale = preferences.PdfUseCustomScale;
-            CustomScaleNumerator = preferences.PdfCustomScaleNumerator > 0
-                ? preferences.PdfCustomScaleNumerator
-                : 1.0;
-            CustomScaleDenominator = preferences.PdfCustomScaleDenominator > 0
-                ? preferences.PdfCustomScaleDenominator
-                : 1.0;
-            ScaleLineweights = preferences.PdfScaleLineweights;
-            PlotOrientation = Enum.IsDefined(typeof(PdfPlotOrientation), preferences.PdfPlotOrientation)
-                ? (PdfPlotOrientation)preferences.PdfPlotOrientation
-                : PdfPlotOrientation.Landscape;
-            PlotTransparency = preferences.PdfPlotTransparency;
-            PlotObjectLineweights = preferences.PdfPlotObjectLineweights;
-            PlotWithPlotStyles = preferences.PdfPlotWithPlotStyles;
-            PlotPaperspaceLast = preferences.PdfPlotPaperspaceLast;
-
-            string preferredDevice = preferences.PdfPlotDeviceName;
-            if (!string.IsNullOrWhiteSpace(preferredDevice) && PlotDevices.Contains(preferredDevice))
-                PlotDeviceName = preferredDevice;
-            else
-                PlotDeviceName = PlotDeviceRepository.ResolveDefaultDevice();
-
-            if (!string.IsNullOrWhiteSpace(preferences.PdfSelectedMediaName) &&
-                DeviceMediaNames.Contains(preferences.PdfSelectedMediaName))
-            {
-                SelectedDeviceMediaName = preferences.PdfSelectedMediaName;
-            }
-
-            SelectedPlotStyleTable = !string.IsNullOrEmpty(preferences.PdfPlotStyleTable) &&
-                                     PlotStyleTables.Contains(preferences.PdfPlotStyleTable)
-                ? preferences.PdfPlotStyleTable
-                : PlotStyleTableRepository.KeepLayoutTableLabel;
         }
 
         private void SavePreferences()
@@ -934,27 +613,10 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             {
                 OutputFolder = OutputFolder,
                 NamingPattern = NamingPattern,
-                OpenFolderWhenDone = OpenFolderWhenDone,
-                PdfPlotDeviceName = PlotDeviceName,
-                PdfPaperMode = (int)PaperMode,
-                PdfIsoFullBleedSize = (int)SelectedIsoSize,
-                PdfSelectedMediaName = SelectedDeviceMediaName,
-                PdfPlotArea = (int)PlotArea,
-                PdfForcePlotPreset = ForcePlotPreset,
-                PdfFitToPaper = FitToPaper,
-                PdfCenterPlot = CenterPlot,
-                PdfUseCustomScale = UseCustomScale,
-                PdfCustomScaleNumerator = CustomScaleNumerator,
-                PdfCustomScaleDenominator = CustomScaleDenominator,
-                PdfScaleLineweights = ScaleLineweights,
-                PdfPlotOrientation = (int)PlotOrientation,
-                PdfPlotTransparency = PlotTransparency,
-                PdfPlotObjectLineweights = PlotObjectLineweights,
-                PdfPlotWithPlotStyles = PlotWithPlotStyles,
-                PdfPlotPaperspaceLast = PlotPaperspaceLast,
-                PdfCombineIntoSinglePdf = CombineIntoSinglePdf,
-                PdfPlotStyleTable = ResolvePlotStyleOverride()
+                OpenFolderWhenDone = OpenFolderWhenDone
             });
+
+            _settingsStore.Save(PlotSettingsKey, Plot.BuildSettings());
         }
 
         public void Dispose()

@@ -15,7 +15,7 @@ namespace GvrTools.Tools.BatchExport
     {
         public override string Id => "GvrBatchExport";
 
-        public override string Title => "Exportar" + Environment.NewLine + "presentaciones";
+        public override string Title => "Trazar" + Environment.NewLine + "presentaciones";
 
         public override string PanelName => "Exportación";
 
@@ -26,11 +26,11 @@ namespace GvrTools.Tools.BatchExport
         public override string RequiredFeature => null; // Licenciamiento pausado en este MVP.
 
         public override string Tooltip =>
-            "Exporta presentaciones (layouts) a PDF de forma masiva, un archivo por presentación.";
+            "Traza presentaciones (layouts) de forma masiva: PDF, DWF, PNG o directo a la impresora.";
 
         public override string LongDescription =>
-            "Usa el motor de trazado nativo de AutoCAD (DWG To PDF.pc3): no abre ventanas, " +
-            "no ocupa el teclado y el equipo queda libre mientras se exporta.";
+            "Toda la configuración del cuadro Trazar de Civil 3D (dispositivo, papel, escala, desfase, " +
+            "plumas, ventanas sombreadas, orientación) más los extras GVR, aplicada a varias presentaciones a la vez.";
 
         public override ImageSource CreateIcon() => VectorIcon.Compose(
             VectorIcon.FilledRectangle(new Rect(6, 3, 20, 26), Colors.White, Color.FromRgb(0x45, 0x5A, 0x64), 1.5, 2),

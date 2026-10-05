@@ -40,6 +40,7 @@
 
     <BooleanToVisibilityConverter x:Key="Gvr.BoolToVisibility"/>
     <conv:InverseBooleanConverter x:Key="Gvr.InverseBool"/>
+    <conv:InverseBooleanToVisibilityConverter x:Key="Gvr.InverseBoolToVisibility"/>
 
     <!-- Small vector glyph (lock). El de estrella se quitó a propósito: el CTA de "subir de plan"
          usa Gvr.Button.Upgrade (dorado) en vez de un ícono, ver más abajo. -->
@@ -84,6 +85,14 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="{StaticResource Gvr.Padding.Card}"/>
+    </Style>
+
+    <!-- Framed section, like the groups of AutoCAD's Plot dialog. -->
+    <Style x:Key="Gvr.GroupBox" TargetType="GroupBox">
+        <Setter Property="Padding" Value="8,6,8,8"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Gvr.Brush.Line}"/>
+        <Setter Property="Foreground" Value="{StaticResource Gvr.Brush.Ink}"/>
     </Style>
 
     <!-- Inputs -->

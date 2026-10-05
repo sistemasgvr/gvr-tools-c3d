@@ -12,7 +12,7 @@ namespace GvrTools.Tools.BatchExport.ViewModels
             Label = result.Label;
             _status = result.Status;
             Succeeded = result.Succeeded;
-            Detail = result.Succeeded ? result.OutputPath : result.Message;
+            Detail = result.Succeeded ? result.OutputPath ?? result.Message : result.Message;
         }
 
         public string Label { get; }
